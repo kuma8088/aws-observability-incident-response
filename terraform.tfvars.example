@@ -1,0 +1,11 @@
+# Copy this file to environments/dev/terraform.tfvars and fill in actual values
+
+aws_region     = "ap-northeast-1"
+environment    = "dev"
+project_prefix = "observability"
+
+# Slack configuration (get these from Slack workspace settings)
+slack_workspace_id     = "T0XXXXXXXXX"
+slack_channel_critical = "C0XXXXXXXXX"  # #alerts-critical
+slack_channel_warning  = "C0XXXXXXXXX"  # #alerts-warning
+slack_channel_info     = "C0XXXXXXXXX"  # #alerts-info
