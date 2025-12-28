@@ -1,13 +1,21 @@
+locals {
+  common_tags = {
+    Project     = var.project_prefix
+    Environment = var.environment
+    ManagedBy   = "Terraform"
+  }
+}
+
 # SNS Topic for Critical Alerts
 resource "aws_sns_topic" "critical" {
   name              = "${var.project_prefix}-${var.environment}-critical-alerts"
   display_name      = "Critical Alerts - Immediate Action Required"
   kms_master_key_id = "alias/aws/sns"
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name     = "${var.project_prefix}-${var.environment}-critical-alerts"
     Severity = "critical"
-  }
+  })
 }
 
 # SNS Topic for Warning Alerts
@@ -16,10 +24,10 @@ resource "aws_sns_topic" "warning" {
   display_name      = "Warning Alerts - Attention Required"
   kms_master_key_id = "alias/aws/sns"
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name     = "${var.project_prefix}-${var.environment}-warning-alerts"
     Severity = "warning"
-  }
+  })
 }
 
 # SNS Topic for Info Alerts
@@ -28,10 +36,10 @@ resource "aws_sns_topic" "info" {
   display_name      = "Info Alerts - Reports and Summaries"
   kms_master_key_id = "alias/aws/sns"
 
-  tags = {
+  tags = merge(local.common_tags, {
     Name     = "${var.project_prefix}-${var.environment}-info-alerts"
     Severity = "info"
-  }
+  })
 }
 
 # SNS Topic Policy (allow CloudWatch to publish)
