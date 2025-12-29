@@ -99,19 +99,16 @@ locals {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/Bedrock", "ClientError", { stat = "Sum", label = "Client Errors" }],
-            [".", "ServerError", { stat = "Sum", label = "Server Errors" }],
-            [".", "ModelError", { stat = "Sum", label = "Model Errors" }],
-            [".", "Invocations", { stat = "Sum", label = "Invocations" }]
+            ["AWS/Bedrock", "ClientError", "ModelId", model_id, { stat = "Sum", label = "Client Errors" }],
+            [".", "ServerError", ".", ".", { stat = "Sum", label = "Server Errors" }],
+            [".", "ModelError", ".", ".", { stat = "Sum", label = "Model Errors" }],
+            [".", "Invocations", ".", ".", { stat = "Sum", label = "Invocations" }]
           ]
           view    = "timeSeries"
           stacked = false
           region  = var.region
           title   = "Bedrock: ${model_id} - Errors & Invocations"
           period  = 300
-          dimensions = {
-            ModelId = model_id
-          }
         }
         x      = (idx % 2) * 12
         y      = (length(var.lambda_functions) * 6) + 12 + (length(var.dynamodb_tables) * 6) + (floor(idx / 2) * 6)
@@ -122,7 +119,7 @@ locals {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/Bedrock", "InvocationLatency", { stat = "p50", label = "P50" }],
+            ["AWS/Bedrock", "InvocationLatency", "ModelId", model_id, { stat = "p50", label = "P50" }],
             ["...", { stat = "p90", label = "P90" }],
             ["...", { stat = "p99", label = "P99" }]
           ]
@@ -131,9 +128,6 @@ locals {
           region  = var.region
           title   = "Bedrock: ${model_id} - Latency"
           period  = 300
-          dimensions = {
-            ModelId = model_id
-          }
         }
         x      = (idx % 2) * 12
         y      = (length(var.lambda_functions) * 6) + 12 + (length(var.dynamodb_tables) * 6) + (floor(idx / 2) * 6) + 6
