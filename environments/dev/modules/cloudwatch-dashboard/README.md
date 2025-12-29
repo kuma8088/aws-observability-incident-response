@@ -41,6 +41,39 @@ module "pf1_dashboard" {
 }
 ```
 
+## CloudWatch Metrics Syntax
+
+このモジュールは CloudWatch Dashboard の正式な metrics 配列構文を使用しています。
+
+### 完全形式
+```hcl
+["Namespace", "MetricName", "DimensionName1", "DimensionValue1", "DimensionName2", "DimensionValue2", { stat = "Sum", label = "Label" }]
+```
+
+### 省略形式
+
+前のメトリクスと同じ値を再利用できます：
+
+- `["...", {...}]` - 前のエントリの Namespace, MetricName, すべての Dimension を再利用
+- `[".", "NewMetric", ".", ".", {...}]` - `.` は前の値を再利用（Namespace と各 Dimension）
+
+### 例
+
+```hcl
+metrics = [
+  # 完全形式
+  ["AWS/Lambda", "Errors", "FunctionName", "my-function", { stat = "Sum" }],
+
+  # 省略形式（同じ Namespace と Dimension を再利用）
+  [".", "Invocations", ".", ".", { stat = "Sum" }],
+
+  # より短い省略形式（すべて再利用して statistic だけ変更）
+  ["...", { stat = "Average" }]
+]
+```
+
+**重要:** `properties.dimensions` に dimension を設定しても**無視されます**。必ず metrics 配列内で指定してください。
+
 ## 変数
 
 | 変数名 | 説明 | デフォルト値 | 必須 |
