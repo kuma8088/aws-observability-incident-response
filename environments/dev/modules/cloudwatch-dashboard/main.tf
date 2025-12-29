@@ -73,19 +73,16 @@ locals {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/DynamoDB", "SystemErrors", { stat = "Sum", label = "System Errors" }],
-            [".", "UserErrors", { stat = "Sum", label = "User Errors" }],
-            [".", "ReadThrottleEvents", { stat = "Sum", label = "Read Throttles" }],
-            [".", "WriteThrottleEvents", { stat = "Sum", label = "Write Throttles" }]
+            ["AWS/DynamoDB", "SystemErrors", "TableName", var.dynamodb_tables[table_key], { stat = "Sum", label = "System Errors" }],
+            [".", "UserErrors", ".", ".", { stat = "Sum", label = "User Errors" }],
+            [".", "ReadThrottleEvents", ".", ".", { stat = "Sum", label = "Read Throttles" }],
+            [".", "WriteThrottleEvents", ".", ".", { stat = "Sum", label = "Write Throttles" }]
           ]
           view    = "timeSeries"
           stacked = false
           region  = var.region
           title   = "DynamoDB: ${var.dynamodb_tables[table_key]} - Errors & Throttles"
           period  = 300
-          dimensions = {
-            TableName = var.dynamodb_tables[table_key]
-          }
         }
         x      = (idx % 2) * 12
         y      = (length(var.lambda_functions) * 6) + 12 + (floor(idx / 2) * 6)
