@@ -113,6 +113,35 @@ module "pf1_bedrock_monitoring" {
 }
 
 # ------------------------------------------------------------
+# CloudWatch Dashboard
+# ------------------------------------------------------------
+module "pf1_dashboard" {
+  source = "./modules/cloudwatch-dashboard"
+
+  dashboard_name    = "${var.project_prefix}-${var.environment}-pf1-monitoring"
+  region            = "ap-northeast-1"
+  api_gateway_id    = "xxxxx" # To be replaced with actual API Gateway ID
+  api_gateway_stage = var.environment
+
+  lambda_functions = {
+    "api-handler"    = "${var.project_prefix}-${var.environment}-api-handler"
+    "data-processor" = "${var.project_prefix}-${var.environment}-data-processor"
+    "auth-handler"   = "${var.project_prefix}-${var.environment}-auth-handler"
+  }
+
+  dynamodb_tables = {
+    "users"    = "${var.project_prefix}-${var.environment}-users"
+    "posts"    = "${var.project_prefix}-${var.environment}-posts"
+    "sessions" = "${var.project_prefix}-${var.environment}-sessions"
+  }
+
+  bedrock_model_ids = [
+    "anthropic.claude-3-sonnet-20240229-v1:0",
+    "anthropic.claude-3-haiku-20240307-v1:0"
+  ]
+}
+
+# ------------------------------------------------------------
 # Outputs
 # ------------------------------------------------------------
 output "lambda_monitoring_alarm_names" {
@@ -143,4 +172,14 @@ output "total_alarm_count" {
     length(module.pf1_dynamodb_monitoring.alarm_names) +
     length(module.pf1_bedrock_monitoring.alarm_names)
   )
+}
+
+output "dashboard_arn" {
+  description = "ARN of the PF1 monitoring dashboard"
+  value       = module.pf1_dashboard.dashboard_arn
+}
+
+output "dashboard_name" {
+  description = "Name of the PF1 monitoring dashboard"
+  value       = module.pf1_dashboard.dashboard_name
 }
