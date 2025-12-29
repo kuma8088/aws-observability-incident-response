@@ -182,6 +182,8 @@ modules/
 | エラー率 | > 5% | 5分間 | #alerts-critical |
 | スロットリング | > 0 | 5分間 | #alerts-critical |
 | Duration | > タイムアウト値の80% | 5分間平均 | #alerts-critical |
+| DeadLetterErrors | > 0 | 5分間 | #alerts-critical |
+| DestinationDeliveryFailures | > 0 | 5分間 | #alerts-critical |
 
 #### Warning（異常検知）
 
@@ -197,13 +199,14 @@ modules/
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
 | 5xxエラー率 | > 1% | 5分間 | #alerts-critical |
-| 4xxエラー率 | > 10% | 10分間 | #alerts-warning |
+| 4xxエラー率 | > 5% | 10分間 | #alerts-warning |
 
 #### Warning（異常検知）
 
 | メトリクス | 検知方法 | 通知先 |
 |-----------|---------|--------|
 | レイテンシ（p99）異常 | Anomaly Detection（2σ） | #alerts-warning |
+| IntegrationLatency異常 | Anomaly Detection（2σ） | #alerts-warning |
 | リクエスト数異常 | Anomaly Detection（急増/急減） | #alerts-warning |
 
 ### DynamoDB監視（各テーブル）
@@ -213,14 +216,7 @@ modules/
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
 | システムエラー | > 0 | 5分間 | #alerts-critical |
-| スロットリングエラー | > 5 | 5分間 | #alerts-critical |
-
-#### Warning（異常検知）
-
-| メトリクス | 検知方法 | 通知先 |
-|-----------|---------|--------|
-| 読み取りキャパシティ使用率異常 | Anomaly Detection | #alerts-warning |
-| 書き込みキャパシティ使用率異常 | Anomaly Detection | #alerts-warning |
+| スロットリングエラー | > 0 | 5分間 | #alerts-critical |
 
 ### Bedrock監視
 
@@ -235,7 +231,6 @@ modules/
 
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
-| 呼び出し回数 | > 1000/日 | 24時間 | #alerts-warning |
 | レイテンシ（p90） | > 10秒 | 10分間 | #alerts-warning |
 
 ### Step Functions監視（PF2のみ）
@@ -254,7 +249,6 @@ modules/
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
 | 日次コスト | > 予算の120% | 24時間 | #alerts-warning |
-| サービス別コスト異常 | 前日比+50% | 24時間 | #alerts-warning |
 
 #### Info（静的閾値）
 
@@ -263,7 +257,7 @@ modules/
 | 月次予算80%到達 | - | #alerts-info |
 | 週次コストレポート | 毎週月曜9:00 | #alerts-info |
 
-**アラーム総数**: 約30-35個
+**アラーム総数**: 約32個（AWS Well-Architected Framework準拠）
 
 ---
 
@@ -645,10 +639,10 @@ module "cost_monitoring" {
 |------|------|--------|------|
 | **CloudWatch** | | | |
 | ダッシュボード（3つ） | 無料枠 | 3つ | $0 |
-| アラーム（30個） | $0.10/アラーム | 30個 | $3.00 |
+| アラーム（32個） | $0.10/アラーム | 32個 | $3.20 |
 | カスタムメトリクス | $0.30/メトリクス | 5個 | $1.50 |
 | ログ保存（1GB） | $0.033/GB | 1GB | $0.03 |
-| Anomaly Detection | $0.30/メトリクス | 10個 | $3.00 |
+| Anomaly Detection | $0.30/メトリクス | 6個 | $1.80 |
 | **X-Ray** | | | |
 | トレース記録 | 無料枠 | 3,000/月 | $0 |
 | **SNS** | | | |
@@ -659,7 +653,7 @@ module "cost_monitoring" {
 | 実行時間 | $0.20/100万リクエスト | 1,000/月 | $0.002 |
 | **Cost Explorer API** | | | |
 | API呼び出し | $0.01/リクエスト | 30/月 | $0.30 |
-| **合計** | | | **約$7.83/月** |
+| **合計** | | | **約$6.83/月** |
 
 ### 本番環境への移行時の追加コスト
 
@@ -776,6 +770,68 @@ module "cost_monitoring" {
 
 ---
 
+## 変更履歴
+
+### 2025-12-29 (1) - AWS推奨値への準拠対応
+
+**変更内容:**
+
+1. **Lambda監視強化**
+   - DeadLetterErrors > 0 アラーム追加（Critical）
+   - DestinationDeliveryFailures > 0 アラーム追加（Critical）
+   - 理由: DLQ送信失敗・非同期処理配信失敗はデータ損失リスクがあるため
+
+2. **API Gateway監視強化**
+   - 4XXError閾値変更: > 10% → > 5%（AWS推奨値に準拠）
+   - IntegrationLatency異常検知追加（Warning、Anomaly Detection）
+   - 理由: バックエンド遅延の早期特定とクライアントエラー率の厳格化
+
+3. **DynamoDB監視厳格化**
+   - ThrottledRequests閾値変更: > 5 → > 0（ゼロトレランス）
+   - 理由: AWS推奨のゼロトレランス方式採用
+
+**影響:**
+- アラーム総数: 約30-35個 → 約35-40個
+- 月額コスト増加: 約$0.50（アラーム5個追加 × $0.10）
+
+**参考資料:**
+- [Amazon CloudWatch Best Practices](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Best_Practice_Recommended_Alarms_AWS_Services.html)
+
+---
+
+### 2025-12-29 (2) - AWS Well-Architected Framework準拠の最適化
+
+**変更内容:**
+
+1. **不要なアラーム削除（AWS推奨外）**
+   - DynamoDB キャパシティ使用率異常（読み取り・書き込み）削除
+     - 理由: ThrottledRequests > 0 アラームで代替可能（AWS推奨）
+   - Bedrock 呼び出し回数 > 1000/日 削除
+     - 理由: 日次コスト異常アラームで代替可能
+   - コスト サービス別異常（前日比+50%）削除
+     - 理由: 日次コスト+週次レポートで代替、開発環境では誤検知リスク高
+
+2. **AWS公式推奨アラームの保持**
+   - Lambda ConcurrentExecutions（AWS推奨、高重要度）
+   - API Gateway Latency（AWS推奨、高重要度、IntegrationLatencyと併用）
+   - API Gateway Count（AWS推奨、中重要度、本番環境向け）
+
+**影響:**
+- アラーム総数: 約35-40個 → 約32個（-3〜8個）
+- 月額コスト: $7.83 → $6.83（-$1.00、-12.8%）
+- Anomaly Detection: 10個 → 6個（-4個）
+
+**AWS Well-Architected Framework準拠性:**
+- ✅ 運用上の優秀性: 誤検知減少、重要アラートに集中
+- ✅ 信頼性: Critical系アラーム全て維持
+- ✅ パフォーマンス効率: AWS推奨メトリクスに準拠
+- ✅ コスト最適化: 冗長アラーム削減で-12.8%コスト削減
+
+**参考資料:**
+- [Amazon CloudWatch Best Practices - Recommended Alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Best_Practice_Recommended_Alarms_AWS_Services.html)
+
+---
+
 **作成者**: Naoya Iimura
 **最終更新**: 2025-12-29
-**バージョン**: 1.0
+**バージョン**: 1.2
