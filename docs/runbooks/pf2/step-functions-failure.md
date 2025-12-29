@@ -168,8 +168,8 @@ aws cloudwatch get-metric-statistics \
 **Investigation:**
 ```bash
 # Check Bedrock API usage
-aws bedrock get-custom-model \
-  --model-identifier claude-3-5-sonnet-20241022 \
+aws bedrock get-foundation-model \
+  --model-identifier anthropic.claude-3-5-sonnet-20241022-v2:0 \
   --region ap-northeast-1 \
   --query 'Model'
 

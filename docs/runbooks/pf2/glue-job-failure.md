@@ -105,7 +105,7 @@ aws logs filter-log-events \
   --log-group-name /aws-glue/jobs \
   --filter-pattern "inquiry-export-dev" \
   --query 'events[?contains(message, `Error`)].[timestamp,message]' \
-  --start-time $(($(date +%s) - 3600000))  # Last hour
+  --start-time $(($(date +%s) - 3600))  # Last hour
 ```
 
 **Common error types:**

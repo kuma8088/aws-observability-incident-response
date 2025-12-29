@@ -288,7 +288,7 @@ aws ses list-verified-email-addresses --region ap-northeast-1
 aws ses get-account-sending-enabled --region ap-northeast-1
 
 # Check message in DLQ - what email was it trying to send to?
-cat /tmp/dlq_message.json | jq '.Body.user_email'
+cat /tmp/dlq_message.json | jq '.Body | fromjson | .user_email'
 ```
 
 **Fix:**
