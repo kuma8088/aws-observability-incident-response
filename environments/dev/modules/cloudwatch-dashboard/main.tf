@@ -30,19 +30,15 @@ locals {
       type = "metric"
       properties = {
         metrics = [
-          ["AWS/ApiGateway", "5XXError", { stat = "Sum", label = "5XX Errors" }],
-          [".", "4XXError", { stat = "Sum", label = "4XX Errors" }],
-          [".", "Count", { stat = "Sum", label = "Requests" }]
+          ["AWS/ApiGateway", "5XXError", "ApiName", var.api_gateway_id, "Stage", var.api_gateway_stage, { stat = "Sum", label = "5XX Errors" }],
+          [".", "4XXError", ".", ".", ".", ".", { stat = "Sum", label = "4XX Errors" }],
+          [".", "Count", ".", ".", ".", ".", { stat = "Sum", label = "Requests" }]
         ]
         view    = "timeSeries"
         stacked = false
         region  = var.region
         title   = "API Gateway - Errors & Request Count"
         period  = 300
-        dimensions = {
-          ApiName = var.api_gateway_id
-          Stage   = var.api_gateway_stage
-        }
       }
       x      = 0
       y      = length(var.lambda_functions) * 6
@@ -53,19 +49,15 @@ locals {
       type = "metric"
       properties = {
         metrics = [
-          ["AWS/ApiGateway", "Latency", { stat = "p50", label = "P50" }],
-          ["...", { stat = "p90", label = "P90" }],
-          ["...", { stat = "p99", label = "P99" }]
+          ["AWS/ApiGateway", "Latency", "ApiName", var.api_gateway_id, "Stage", var.api_gateway_stage, { stat = "p50", label = "P50" }],
+          [".", ".", ".", ".", ".", ".", { stat = "p90", label = "P90" }],
+          [".", ".", ".", ".", ".", ".", { stat = "p99", label = "P99" }]
         ]
         view    = "timeSeries"
         stacked = false
         region  = var.region
         title   = "API Gateway - Latency"
         period  = 300
-        dimensions = {
-          ApiName = var.api_gateway_id
-          Stage   = var.api_gateway_stage
-        }
       }
       x      = 12
       y      = length(var.lambda_functions) * 6
