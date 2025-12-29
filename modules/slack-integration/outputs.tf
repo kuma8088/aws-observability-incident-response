@@ -30,15 +30,15 @@ output "info_topic_name" {
 
 output "chatbot_critical_arn" {
   description = "ARN of the critical Chatbot configuration"
-  value       = aws_chatbot_slack_channel_configuration.critical.arn
+  value       = aws_chatbot_slack_channel_configuration.critical.chat_configuration_arn
 }
 
 output "chatbot_warning_arn" {
   description = "ARN of the warning Chatbot configuration"
-  value       = aws_chatbot_slack_channel_configuration.warning.arn
+  value       = aws_chatbot_slack_channel_configuration.warning.chat_configuration_arn
 }
 
 output "chatbot_info_arn" {
   description = "ARN of the info Chatbot configuration"
-  value       = aws_chatbot_slack_channel_configuration.info.arn
+  value       = aws_chatbot_slack_channel_configuration.info.chat_configuration_arn
 }
