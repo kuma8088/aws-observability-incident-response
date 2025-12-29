@@ -42,8 +42,8 @@ resource "aws_sns_topic" "info" {
   })
 }
 
-# SNS Topic Policy (allow CloudWatch to publish)
-data "aws_iam_policy_document" "sns_topic_policy" {
+# SNS Topic Policy for Critical (allow CloudWatch and EventBridge to publish)
+data "aws_iam_policy_document" "sns_topic_policy_critical" {
   statement {
     sid    = "AllowCloudWatchPublish"
     effect = "Allow"
@@ -59,8 +59,6 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
     resources = [
       aws_sns_topic.critical.arn,
-      aws_sns_topic.warning.arn,
-      aws_sns_topic.info.arn,
     ]
   }
 
@@ -79,7 +77,83 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
     resources = [
       aws_sns_topic.critical.arn,
+    ]
+  }
+}
+
+# SNS Topic Policy for Warning (allow CloudWatch and EventBridge to publish)
+data "aws_iam_policy_document" "sns_topic_policy_warning" {
+  statement {
+    sid    = "AllowCloudWatchPublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions = [
+      "SNS:Publish",
+    ]
+
+    resources = [
       aws_sns_topic.warning.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowEventBridgePublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    actions = [
+      "SNS:Publish",
+    ]
+
+    resources = [
+      aws_sns_topic.warning.arn,
+    ]
+  }
+}
+
+# SNS Topic Policy for Info (allow CloudWatch and EventBridge to publish)
+data "aws_iam_policy_document" "sns_topic_policy_info" {
+  statement {
+    sid    = "AllowCloudWatchPublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudwatch.amazonaws.com"]
+    }
+
+    actions = [
+      "SNS:Publish",
+    ]
+
+    resources = [
+      aws_sns_topic.info.arn,
+    ]
+  }
+
+  statement {
+    sid    = "AllowEventBridgePublish"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+
+    actions = [
+      "SNS:Publish",
+    ]
+
+    resources = [
       aws_sns_topic.info.arn,
     ]
   }
@@ -87,15 +161,15 @@ data "aws_iam_policy_document" "sns_topic_policy" {
 
 resource "aws_sns_topic_policy" "critical" {
   arn    = aws_sns_topic.critical.arn
-  policy = data.aws_iam_policy_document.sns_topic_policy.json
+  policy = data.aws_iam_policy_document.sns_topic_policy_critical.json
 }
 
 resource "aws_sns_topic_policy" "warning" {
   arn    = aws_sns_topic.warning.arn
-  policy = data.aws_iam_policy_document.sns_topic_policy.json
+  policy = data.aws_iam_policy_document.sns_topic_policy_warning.json
 }
 
 resource "aws_sns_topic_policy" "info" {
   arn    = aws_sns_topic.info.arn
-  policy = data.aws_iam_policy_document.sns_topic_policy.json
+  policy = data.aws_iam_policy_document.sns_topic_policy_info.json
 }

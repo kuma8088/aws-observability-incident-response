@@ -38,7 +38,7 @@ resource "aws_xray_sampling_rule" "errors" {
 
   tags = {
     Name        = "${var.project_prefix}-${var.environment}-error-sampling"
-    Description = "High-priority sampling rule for errors (100%)"
+    Description = "High-priority sampling rule for errors 100 percent"
   }
 }
 
@@ -70,6 +70,6 @@ resource "aws_xray_group" "high_latency" {
 
   tags = {
     Name        = "${var.project_prefix}-${var.environment}-high-latency-group"
-    Description = "X-Ray group for high latency traces (>3s)"
+    Description = "X-Ray group for high latency traces over 3 seconds"
   }
 }

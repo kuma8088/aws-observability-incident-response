@@ -14,7 +14,7 @@ provider "aws" {
 
   default_tags {
     tags = {
-      Project     = "PF14-Observability"
+      Project     = "PF14_Observability"
       Environment = var.environment
       ManagedBy   = "Terraform"
       Repository  = "aws-observability-incident-response"
