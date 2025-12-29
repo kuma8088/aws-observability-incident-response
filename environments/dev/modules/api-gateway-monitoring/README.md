@@ -33,6 +33,15 @@ AWS Well-Architected Framework準拠のAPI Gateway監視モジュール。
    - Band: 2 standard deviations
    - 評価期間: 2 periods × 5 minutes
 
+## Important: REST API vs HTTP API
+
+このモジュールは**REST API専用**です。CloudWatchメトリクスのdimensionとして`ApiName`を使用します。
+
+- **REST API**: `ApiName` dimension に API名を指定（例: "mealmgtsystem-prod"）
+- **HTTP API**: `ApiId` dimension に API IDを指定（このモジュールは未対応）
+
+PF1（食事管理アプリ）はREST APIを使用しているため、このモジュールで正しく監視できます。
+
 ## 使用方法
 
 ```hcl
@@ -41,8 +50,7 @@ module "api_gateway_monitoring" {
 
   project_prefix          = "observability"
   environment             = "dev"
-  api_id                  = "abc123xyz"
-  api_name                = "pf1-api"
+  api_name                = "observability-dev-api"
   api_stage               = "prod"
   error_5xx_threshold     = 1
   error_4xx_threshold     = 5
@@ -55,8 +63,7 @@ module "api_gateway_monitoring" {
 
 | 変数名 | 説明 | デフォルト値 | 必須 |
 |--------|------|-------------|------|
-| `api_id` | API Gateway REST API ID | - | Yes |
-| `api_name` | API名（アラーム名・タグ用） | - | Yes |
+| `api_name` | API Gateway REST API名（CloudWatchメトリクスdimension用） | - | Yes |
 | `api_stage` | API Gatewayステージ名 | "prod" | No |
 | `error_5xx_threshold` | 5XXエラー率の閾値（%） | 1 | No |
 | `error_4xx_threshold` | 4XXエラー率の閾値（%） | 5 | No |

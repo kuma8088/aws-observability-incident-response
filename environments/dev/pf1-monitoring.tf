@@ -57,7 +57,6 @@ module "pf1_apigw_monitoring" {
   warning_sns_topic_arn  = module.slack_integration.warning_topic_arn
 
   api_name  = "${var.project_prefix}-${var.environment}-api"
-  api_id    = "xxxxx" # To be replaced with actual API Gateway ID
   api_stage = var.environment
 
   error_5xx_threshold = 1.0 # 1%

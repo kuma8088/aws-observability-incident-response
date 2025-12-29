@@ -1,10 +1,5 @@
-variable "api_id" {
-  description = "API Gateway REST API ID"
-  type        = string
-}
-
 variable "api_name" {
-  description = "API Gateway name for tagging and alarm naming"
+  description = "API Gateway REST API name (for CloudWatch metrics dimension)"
   type        = string
 }
 

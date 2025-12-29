@@ -24,7 +24,7 @@ resource "aws_cloudwatch_metric_alarm" "api_5xx_error_rate" {
       period      = 300 # 5 minutes
       stat        = "Sum"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -38,7 +38,7 @@ resource "aws_cloudwatch_metric_alarm" "api_5xx_error_rate" {
       period      = 300
       stat        = "Sum"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -81,7 +81,7 @@ resource "aws_cloudwatch_metric_alarm" "api_4xx_error_rate" {
       period      = 300
       stat        = "Sum"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -95,7 +95,7 @@ resource "aws_cloudwatch_metric_alarm" "api_4xx_error_rate" {
       period      = 300
       stat        = "Sum"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -132,7 +132,7 @@ resource "aws_cloudwatch_metric_alarm" "api_latency_anomaly" {
       period      = 300
       stat        = "p99"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -176,7 +176,7 @@ resource "aws_cloudwatch_metric_alarm" "api_integration_latency_anomaly" {
       period      = 300
       stat        = "p99"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
@@ -220,7 +220,7 @@ resource "aws_cloudwatch_metric_alarm" "api_count_anomaly" {
       period      = 300
       stat        = "Sum"
       dimensions = {
-        ApiName = var.api_id
+        ApiName = var.api_name
         Stage   = var.api_stage
       }
     }
