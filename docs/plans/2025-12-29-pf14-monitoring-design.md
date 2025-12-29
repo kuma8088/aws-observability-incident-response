@@ -182,6 +182,8 @@ modules/
 | エラー率 | > 5% | 5分間 | #alerts-critical |
 | スロットリング | > 0 | 5分間 | #alerts-critical |
 | Duration | > タイムアウト値の80% | 5分間平均 | #alerts-critical |
+| DeadLetterErrors | > 0 | 5分間 | #alerts-critical |
+| DestinationDeliveryFailures | > 0 | 5分間 | #alerts-critical |
 
 #### Warning（異常検知）
 
@@ -197,13 +199,14 @@ modules/
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
 | 5xxエラー率 | > 1% | 5分間 | #alerts-critical |
-| 4xxエラー率 | > 10% | 10分間 | #alerts-warning |
+| 4xxエラー率 | > 5% | 10分間 | #alerts-warning |
 
 #### Warning（異常検知）
 
 | メトリクス | 検知方法 | 通知先 |
 |-----------|---------|--------|
 | レイテンシ（p99）異常 | Anomaly Detection（2σ） | #alerts-warning |
+| IntegrationLatency異常 | Anomaly Detection（2σ） | #alerts-warning |
 | リクエスト数異常 | Anomaly Detection（急増/急減） | #alerts-warning |
 
 ### DynamoDB監視（各テーブル）
@@ -213,7 +216,7 @@ modules/
 | メトリクス | 閾値 | 評価期間 | 通知先 |
 |-----------|------|---------|--------|
 | システムエラー | > 0 | 5分間 | #alerts-critical |
-| スロットリングエラー | > 5 | 5分間 | #alerts-critical |
+| スロットリングエラー | > 0 | 5分間 | #alerts-critical |
 
 #### Warning（異常検知）
 
@@ -263,7 +266,7 @@ modules/
 | 月次予算80%到達 | - | #alerts-info |
 | 週次コストレポート | 毎週月曜9:00 | #alerts-info |
 
-**アラーム総数**: 約30-35個
+**アラーム総数**: 約35-40個（AWS推奨値準拠により増加）
 
 ---
 
@@ -776,6 +779,35 @@ module "cost_monitoring" {
 
 ---
 
+## 変更履歴
+
+### 2025-12-29 - AWS推奨値への準拠対応
+
+**変更内容:**
+
+1. **Lambda監視強化**
+   - DeadLetterErrors > 0 アラーム追加（Critical）
+   - DestinationDeliveryFailures > 0 アラーム追加（Critical）
+   - 理由: DLQ送信失敗・非同期処理配信失敗はデータ損失リスクがあるため
+
+2. **API Gateway監視強化**
+   - 4XXError閾値変更: > 10% → > 5%（AWS推奨値に準拠）
+   - IntegrationLatency異常検知追加（Warning、Anomaly Detection）
+   - 理由: バックエンド遅延の早期特定とクライアントエラー率の厳格化
+
+3. **DynamoDB監視厳格化**
+   - ThrottledRequests閾値変更: > 5 → > 0（ゼロトレランス）
+   - 理由: AWS推奨のゼロトレランス方式採用
+
+**影響:**
+- アラーム総数: 約30-35個 → 約35-40個
+- 月額コスト増加: 約$0.50（アラーム5個追加 × $0.10）
+
+**参考資料:**
+- [Amazon CloudWatch Best Practices](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Best_Practice_Recommended_Alarms_AWS_Services.html)
+
+---
+
 **作成者**: Naoya Iimura
 **最終更新**: 2025-12-29
-**バージョン**: 1.0
+**バージョン**: 1.1
