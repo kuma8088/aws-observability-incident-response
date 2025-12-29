@@ -6,18 +6,15 @@ locals {
         type = "metric"
         properties = {
           metrics = [
-            ["AWS/Lambda", "Errors", { stat = "Sum", label = "Errors" }],
-            [".", "Invocations", { stat = "Sum", label = "Invocations" }],
-            [".", "Throttles", { stat = "Sum", label = "Throttles" }]
+            ["AWS/Lambda", "Errors", "FunctionName", var.lambda_functions[func_key], { stat = "Sum", label = "Errors" }],
+            [".", "Invocations", ".", ".", { stat = "Sum", label = "Invocations" }],
+            [".", "Throttles", ".", ".", { stat = "Sum", label = "Throttles" }]
           ]
           view    = "timeSeries"
           stacked = false
           region  = var.region
           title   = "Lambda: ${var.lambda_functions[func_key]} - Errors & Invocations"
           period  = 300
-          dimensions = {
-            FunctionName = var.lambda_functions[func_key]
-          }
         }
         x      = (idx % 2) * 12
         y      = floor(idx / 2) * 6
