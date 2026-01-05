@@ -1,6 +1,6 @@
 # PF14: AWS Integrated Monitoring & Incident Response
 
-A portfolio project demonstrating 24/365 monitoring, incident investigation, and support skills using AWS Well-Architected Framework best practices.
+AWS統合監視・インシデント対応基盤。AWS Well-Architected Frameworkに準拠した24/365監視インフラをTerraformで構築。
 
 ## Overview
 
@@ -200,11 +200,7 @@ After `terraform apply`:
 
 | Document | Description |
 |----------|-------------|
-| [Design Document](docs/plans/2025-12-29-pf14-monitoring-design.md) | Full architecture and requirements |
 | [Setup Guide](docs/setup-guide.md) | Detailed installation instructions |
-| [Phase 1 Plan](docs/plans/2025-12-29-phase1-foundation.md) | Foundation implementation details |
-| [Phase 2 Plan](docs/plans/2025-12-29-phase2-pf1-monitoring.md) | PF1 monitoring implementation |
-| [Phase 3 Plan](docs/plans/2025-12-29-phase3-pf2-monitoring.md) | PF2 monitoring implementation |
 
 ---
 
