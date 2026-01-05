@@ -288,7 +288,11 @@ terraform destroy
 ### 運用上の優秀性
 
 - **IaC**: 全リソースをTerraformで管理、環境別（dev/prod）に分離
-- **タグ戦略**: 全リソースにProject/Environment/ManagedBy/Severityタグを自動付与
+- **タグ戦略**: Terraform `default_tags`で全リソースに自動付与
+  - `Project`: コスト配分、リソース識別用
+  - `Environment`: 環境別フィルタリング（dev/prod）
+  - `ManagedBy`: Terraform管理リソースの識別（手動削除可否の判断）
+  - `Severity`: アラートレベル識別（critical/warning）
 - **ランブック**: 7つのインシデント対応手順書（AWS CLIコマンド付き）
 - **ログ記録**: Chatbot `logging_level = INFO`でアクティビティを記録
 
