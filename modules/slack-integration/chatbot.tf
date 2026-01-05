@@ -29,7 +29,7 @@ resource "aws_iam_role_policy_attachment" "chatbot_cloudwatch" {
 
 # AWS Chatbot Configuration for Critical Alerts
 resource "aws_chatbot_slack_channel_configuration" "critical" {
-  configuration_name = "${var.project_prefix}-${var.environment}-critical"
+  configuration_name = "Critical"
   iam_role_arn       = aws_iam_role.chatbot.arn
   slack_channel_id   = var.slack_channel_critical
   slack_team_id      = var.slack_workspace_id
@@ -54,7 +54,7 @@ resource "aws_chatbot_slack_channel_configuration" "critical" {
 
 # AWS Chatbot Configuration for Warning Alerts
 resource "aws_chatbot_slack_channel_configuration" "warning" {
-  configuration_name = "${var.project_prefix}-${var.environment}-warning"
+  configuration_name = "Warning"
   iam_role_arn       = aws_iam_role.chatbot.arn
   slack_channel_id   = var.slack_channel_warning
   slack_team_id      = var.slack_workspace_id
@@ -79,7 +79,7 @@ resource "aws_chatbot_slack_channel_configuration" "warning" {
 
 # AWS Chatbot Configuration for Info Alerts
 resource "aws_chatbot_slack_channel_configuration" "info" {
-  configuration_name = "${var.project_prefix}-${var.environment}-info"
+  configuration_name = "Info"
   iam_role_arn       = aws_iam_role.chatbot.arn
   slack_channel_id   = var.slack_channel_info
   slack_team_id      = var.slack_workspace_id

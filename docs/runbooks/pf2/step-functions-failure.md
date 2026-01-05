@@ -1,46 +1,46 @@
-# Step Functions実行失敗対応 Runbook
+# Step Functions 実行失敗対応ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf2-sfn-workflow-execution-failed` |
-| **Severity** | Critical |
-| **Service** | AWS Step Functions |
-| **Metric** | ExecutionsFailed rate > 5% |
-| **Threshold** | 5% failure rate over 15 minutes |
-| **Slack Channel** | #alerts-critical |
-| **State Machine** | `inquiry-workflow-dev` |
-
----
-
-## What This Alert Means
-
-This alert triggers when the Step Functions state machine that orchestrates the inquiry system workflow experiences a failure rate exceeding 5% over a 15-minute evaluation period. This indicates that the AI-powered inquiry processing workflow is not completing successfully for multiple requests, likely preventing inquiries from being fully processed.
-
-**Impact:**
-- Users' inquiries cannot be automatically processed through the AI workflow
-- Manual intervention may be required to retry failed inquiries
-- System availability is degraded for inquiry processing
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf2-sfn-workflow-execution-failed` |
+| **重要度** | Critical |
+| **サービス** | AWS Step Functions |
+| **メトリクス** | ExecutionsFailed rate > 5% |
+| **閾値** | 15分間で失敗率5%超過 |
+| **Slack チャンネル** | #alerts-critical |
+| **ステートマシン** | `inquiry-workflow-dev` |
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## このアラートの意味
 
-### 1. Access the AWS Step Functions Console
+このアラートは、問い合わせシステムのワークフローを制御する Step Functions ステートマシンで、15分間の評価期間中に失敗率が5%を超えた場合に発火します。これは、AI を活用した問い合わせ処理ワークフローが複数のリクエストで正常に完了していないことを示し、問い合わせが完全に処理されていない可能性があります。
 
-Navigate to: [AWS Step Functions Console](https://console.aws.amazon.com/states/home?region=ap-northeast-1)
+**影響:**
+- ユーザーの問い合わせが AI ワークフローで自動処理できない
+- 失敗した問い合わせの再試行に手動介入が必要になる可能性がある
+- 問い合わせ処理のシステム可用性が低下している
 
-**What to check:**
-- Click on the state machine named `inquiry-workflow-dev`
-- Go to the **Executions** tab
-- Filter by **Status: FAILED**
-- Look for recent failures (within the last 15 minutes)
+---
 
-### 2. Review Failed Execution Details
+## 即時対応（0-5分）
+
+### 1. AWS Step Functions コンソールにアクセス
+
+アクセス先: [AWS Step Functions コンソール](https://console.aws.amazon.com/states/home?region=ap-northeast-1)
+
+**確認事項:**
+- `inquiry-workflow-dev` という名前のステートマシンをクリック
+- **実行** タブに移動
+- **ステータス: FAILED** でフィルタリング
+- 直近（15分以内）の失敗を確認
+
+### 2. 失敗した実行の詳細を確認
 
 ```bash
-# Get the most recent failed execution ARN
+# 最新の失敗した実行 ARN を取得
 aws stepfunctions list-executions \
   --state-machine-arn arn:aws:states:ap-northeast-1:<ACCOUNT_ID>:stateMachine:inquiry-workflow-dev \
   --status-filter FAILED \
@@ -49,30 +49,30 @@ aws stepfunctions list-executions \
   --output text
 ```
 
-### 3. Check CloudWatch Logs
+### 3. CloudWatch Logs を確認
 
-Navigate to: [CloudWatch Logs - inquiry-workflow-dev](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Fstepfunctions$252Finquiry-workflow-dev)
+アクセス先: [CloudWatch Logs - inquiry-workflow-dev](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws$252Fstepfunctions$252Finquiry-workflow-dev)
 
-**Search for:**
-- Error messages or exceptions in the execution logs
-- Failed state transitions
-- Lambda function invocation errors
+**検索対象:**
+- 実行ログ内のエラーメッセージや例外
+- 失敗したステート遷移
+- Lambda 関数の呼び出しエラー
 
-### 4. Check Related Services Status
+### 4. 関連サービスのステータスを確認
 
-- **Lambda Functions**: Check ExecuteJob, JudgeCategory, CreateAnswer Lambda logs
-- **Bedrock API**: Check for throttling or service errors
-- **DynamoDB**: Check for write errors or throttling
-- **SES**: Check for email sending failures
+- **Lambda Functions**: ExecuteJob、JudgeCategory、CreateAnswer Lambda のログを確認
+- **Bedrock API**: スロットリングやサービスエラーを確認
+- **DynamoDB**: 書き込みエラーやスロットリングを確認
+- **SES**: メール送信の失敗を確認
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Examine Execution History
+### ステップ 1: 実行履歴を確認
 
 ```bash
-# Get detailed execution history
+# 詳細な実行履歴を取得
 EXECUTION_ARN="arn:aws:states:ap-northeast-1:<ACCOUNT_ID>:execution:inquiry-workflow-dev:<EXECUTION_ID>"
 
 aws stepfunctions get-execution-history \
@@ -80,66 +80,66 @@ aws stepfunctions get-execution-history \
   --query 'events[?type==`ExecutionFailed`]'
 ```
 
-### Step 2: Identify the Failing State
+### ステップ 2: 失敗しているステートを特定
 
-The inquiry workflow has these states:
-1. **JudgeCategory** - Categorize the inquiry using Bedrock Claude
-2. **CreateAnswer** - Generate response using Bedrock Claude
-3. **SendEmail** - Send response via Amazon SES
-4. **UpdateDynamoDB** - Store inquiry in DynamoDB
+問い合わせワークフローには以下のステートがあります:
+1. **JudgeCategory** - Bedrock Claude を使用して問い合わせをカテゴリ分類
+2. **CreateAnswer** - Bedrock Claude を使用して回答を生成
+3. **SendEmail** - Amazon SES で回答を送信
+4. **UpdateDynamoDB** - DynamoDB に問い合わせを保存
 
-Check which state is failing:
-- If ExecutionFailed appears immediately → Check input validation
-- If it fails after JudgeCategory → Bedrock API error
-- If it fails after CreateAnswer → SES or DynamoDB error
+どのステートで失敗しているか確認:
+- ExecutionFailed が即座に発生 → 入力バリデーションを確認
+- JudgeCategory 後に失敗 → Bedrock API エラー
+- CreateAnswer 後に失敗 → SES または DynamoDB のエラー
 
-### Step 3: Check Resource Limits
+### ステップ 3: リソース制限を確認
 
 ```bash
-# Check Lambda concurrent executions
+# Lambda の同時実行数を確認
 aws lambda get-account-settings \
   --region ap-northeast-1 \
   --query 'AccountUsage'
 
-# Check DynamoDB table status
+# DynamoDB テーブルのステータスを確認
 aws dynamodb describe-table \
   --table-name inquiry-dev \
   --query 'Table.[TableStatus,BillingModeSummary]'
 
-# Check Bedrock model availability
+# Bedrock モデルの可用性を確認
 aws bedrock list-foundation-models \
   --region ap-northeast-1 \
   --query 'modelSummaries[?contains(modelId, `claude-3`)]'
 ```
 
-### Step 4: Check X-Ray Traces
+### ステップ 4: X-Ray トレースを確認
 
-Navigate to: [X-Ray Service Map](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/service-map)
+アクセス先: [X-Ray サービスマップ](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/service-map)
 
-**What to look for:**
-- Red nodes indicate failed services
-- Click on service to see error details
-- Check trace duration and latency
+**確認ポイント:**
+- 赤いノードは失敗したサービスを示す
+- サービスをクリックしてエラーの詳細を確認
+- トレースの所要時間とレイテンシーを確認
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と修正方法
 
-### 1. Lambda Function Timeout
+### 1. Lambda 関数のタイムアウト
 
-**Symptoms:**
-- ExecutionFailed with type: `States.TaskStateAbortedError`
-- Logs show "Lambda function timed out"
-- occurs in JudgeCategory or CreateAnswer states
+**症状:**
+- ExecutionFailed（type: `States.TaskStateAbortedError`）
+- ログに「Lambda function timed out」と表示
+- JudgeCategory または CreateAnswer ステートで発生
 
-**Investigation:**
+**調査:**
 ```bash
-# Check Lambda function configuration
+# Lambda 関数の設定を確認
 aws lambda get-function-configuration \
   --function-name inquiry-system-execute-job-dev \
   --query '[Timeout,MemorySize]'
 
-# Check recent Lambda durations
+# 最近の Lambda 実行時間を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Duration \
@@ -150,30 +150,30 @@ aws cloudwatch get-metric-statistics \
   --statistics Maximum
 ```
 
-**Fix:**
-1. Increase Lambda timeout in Step Functions state definition:
+**修正:**
+1. Step Functions ステート定義で Lambda タイムアウトを延長:
    ```json
    "TimeoutSeconds": 300
    ```
-2. Optimize Bedrock API calls (reduce context length, etc.)
-3. Consider increasing Lambda memory allocation
+2. Bedrock API 呼び出しを最適化（コンテキスト長の削減など）
+3. Lambda のメモリ割り当てを増加することを検討
 
-### 2. Bedrock API Throttling or Errors
+### 2. Bedrock API のスロットリングまたはエラー
 
-**Symptoms:**
-- ExecutionFailed with error: `ThrottlingException` or `ModelTimeoutException`
-- Logs show "Rate exceeded" or "Model currently unavailable"
-- Multiple failures in short time window
+**症状:**
+- ExecutionFailed（エラー: `ThrottlingException` または `ModelTimeoutException`）
+- ログに「Rate exceeded」または「Model currently unavailable」と表示
+- 短時間で複数の失敗が発生
 
-**Investigation:**
+**調査:**
 ```bash
-# Check Bedrock API usage
+# Bedrock API の使用状況を確認
 aws bedrock get-foundation-model \
   --model-identifier anthropic.claude-3-5-sonnet-20241022-v2:0 \
   --region ap-northeast-1 \
   --query 'Model'
 
-# Check CloudWatch metrics for Bedrock
+# Bedrock の CloudWatch メトリクスを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationThrottles \
@@ -183,8 +183,8 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Fix:**
-1. Implement exponential backoff in Lambda:
+**修正:**
+1. Lambda で指数バックオフを実装:
    ```python
    import time
    import random
@@ -200,24 +200,24 @@ aws cloudwatch get-metric-statistics \
            else:
                raise
    ```
-2. Reduce request batch size
-3. Implement request queuing with SQS
+2. リクエストのバッチサイズを削減
+3. SQS を使用したリクエストキューイングを実装
 
-### 3. DynamoDB Write Errors
+### 3. DynamoDB 書き込みエラー
 
-**Symptoms:**
-- ExecutionFailed in UpdateDynamoDB state
-- Logs show `ValidationException` or `ConditionalCheckFailedException`
-- Occurs after successful Bedrock calls
+**症状:**
+- UpdateDynamoDB ステートで ExecutionFailed
+- ログに `ValidationException` または `ConditionalCheckFailedException` と表示
+- Bedrock 呼び出しが成功した後に発生
 
-**Investigation:**
+**調査:**
 ```bash
-# Check DynamoDB write capacity
+# DynamoDB の書き込みキャパシティを確認
 aws dynamodb describe-table \
   --table-name inquiry-dev \
   --query 'Table.BillingModeSummary'
 
-# Check for throttled writes
+# スロットリングされた書き込みを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name UserErrors \
@@ -228,86 +228,86 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Fix:**
-1. Verify DynamoDB item schema:
+**修正:**
+1. DynamoDB アイテムスキーマを確認:
    ```bash
-   # Check an existing item structure
+   # 既存アイテムの構造を確認
    aws dynamodb get-item \
      --table-name inquiry-dev \
      --key '{"inquiry_id":{"S":"sample-id"}}'
    ```
-2. If using provisioned capacity, increase write capacity:
+2. プロビジョンドキャパシティを使用している場合、書き込みキャパシティを増加:
    ```bash
    aws dynamodb update-table \
      --table-name inquiry-dev \
      --billing-mode PROVISIONED \
      --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
    ```
-3. If using on-demand, it should auto-scale (but check for errors in logs)
+3. オンデマンドを使用している場合は自動スケーリングされるはず（ただしログでエラーを確認）
 
-### 4. SES Email Delivery Failure
+### 4. SES メール配信の失敗
 
-**Symptoms:**
-- ExecutionFailed in SendEmail state
-- Error: `MessageRejected` or `ConfigurationSetDoesNotExist`
-- Email address issues
+**症状:**
+- SendEmail ステートで ExecutionFailed
+- エラー: `MessageRejected` または `ConfigurationSetDoesNotExist`
+- メールアドレスの問題
 
-**Investigation:**
+**調査:**
 ```bash
-# Check SES verified identities
+# SES の認証済み ID を確認
 aws ses list-verified-email-addresses \
   --region ap-northeast-1
 
-# Check SES sending statistics
+# SES の送信統計を確認
 aws ses get-account-sending-enabled \
   --region ap-northeast-1
 ```
 
-**Fix:**
-1. Verify sender email in SES:
+**修正:**
+1. SES で送信者メールを認証:
    ```bash
    aws ses verify-email-identity \
      --email-address noreply@example.com \
      --region ap-northeast-1
    ```
-2. Check recipient email format (valid email required)
-3. Verify SES sandbox status (if in sandbox, recipient must be verified too)
+2. 受信者メールの形式を確認（有効なメールアドレスが必要）
+3. SES サンドボックスのステータスを確認（サンドボックス内の場合、受信者も認証が必要）
 
-### 5. Invalid Input Data
+### 5. 無効な入力データ
 
-**Symptoms:**
-- ExecutionFailed immediately
-- Error type: `States.TaskStateAbortedError`
-- No Lambda invocation occurred
+**症状:**
+- ExecutionFailed が即座に発生
+- エラータイプ: `States.TaskStateAbortedError`
+- Lambda 呼び出しが行われていない
 
-**Investigation:**
+**調査:**
 ```bash
-# Check execution input
+# 実行入力を確認
 aws stepfunctions describe-execution \
   --execution-arn $EXECUTION_ARN \
   --query 'input' | jq .
 ```
 
-**Fix:**
-1. Validate input schema in the API Gateway request handler
-2. Ensure required fields: `inquiry_id`, `user_email`, `inquiry_text`
-3. Add input validation state at the beginning of the workflow
+**修正:**
+1. API Gateway リクエストハンドラーで入力スキーマをバリデーション
+2. 必須フィールドを確認: `inquiry_id`、`user_email`、`inquiry_text`
+3. ワークフローの最初に入力バリデーションステートを追加
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Retry Failed Executions (Recommended for transient errors)
+### オプション 1: 失敗した実行の再試行（一時的なエラーに推奨）
 
 ```bash
-# Get the failed execution's input
+# 失敗した実行の入力を取得
 FAILED_EXECUTION_ARN="arn:aws:states:ap-northeast-1:<ACCOUNT_ID>:execution:inquiry-workflow-dev:<EXECUTION_ID>"
 
 aws stepfunctions describe-execution \
   --execution-arn $FAILED_EXECUTION_ARN \
   --query 'input' --output text > /tmp/failed_input.json
 
-# Start a new execution with the same input
+# 同じ入力で新しい実行を開始
 aws stepfunctions start-execution \
   --state-machine-arn arn:aws:states:ap-northeast-1:<ACCOUNT_ID>:stateMachine:inquiry-workflow-dev \
   --name "retry-$(date +%s)" \
@@ -315,72 +315,72 @@ aws stepfunctions start-execution \
   --region ap-northeast-1
 ```
 
-### Option 2: Deploy a Fix (if code bug is found)
+### オプション 2: 修正をデプロイ（コードのバグが見つかった場合）
 
 ```bash
-# 1. Update the Lambda function or workflow definition
-# 2. Test in development environment
-# 3. Deploy to production
+# 1. Lambda 関数またはワークフロー定義を更新
+# 2. 開発環境でテスト
+# 3. 本番環境にデプロイ
 
 aws lambda update-function-code \
   --function-name inquiry-system-execute-job-dev \
   --zip-file fileb:///path/to/function.zip
 
-# Verify update
+# 更新を確認
 aws lambda get-function-configuration \
   --function-name inquiry-system-execute-job-dev
 ```
 
-### Option 3: Escalate if Service Dependency Fails
+### オプション 3: サービス依存関係の障害時はエスカレーション
 
-If the issue is determined to be in AWS service (Bedrock, SES) rather than your code:
-1. Check AWS Service Health Dashboard
-2. Pause inquiry processing (disable API endpoint)
-3. Wait for service recovery
-4. Resume processing and retry failed inquiries
-
----
-
-## Post-Incident
-
-After the alert is resolved, complete the following:
-
-- [ ] **Document Root Cause**: Record what caused the failures in the incident log
-- [ ] **Check for Data Loss**: Verify that no inquiry data was lost during failures
-- [ ] **Review Failed Inquiry Count**: How many inquiries failed? Were they retried?
-- [ ] **Assess Threshold Appropriateness**: Was 5% the right threshold? Adjust if needed
-- [ ] **Update Error Handling**: Improve logging or error messages if needed
-- [ ] **Communicate with Team**: Summarize incident and resolution
+問題がコードではなく AWS サービス（Bedrock、SES）にあると判断された場合:
+1. AWS Service Health Dashboard を確認
+2. 問い合わせ処理を一時停止（API エンドポイントを無効化）
+3. サービス復旧を待機
+4. 処理を再開し、失敗した問い合わせを再試行
 
 ---
 
-## Dashboard and Monitoring
+## インシデント後の対応
 
-### Real-time Monitoring
+アラートが解決した後、以下を完了してください:
 
-- [CloudWatch Dashboard - PF2](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF2-Dashboard)
-  - Shows execution success/failure rates
-  - Displays recent execution history
-  - Latency metrics for each state
-
-### Related Alarms
-
-- `pf2-sfn-workflow-execution-timedout`: Execution timeout alert (also critical)
-- `pf2-lambda-execute-job-error-rate`: Lambda error rate alert
-- `pf2-lambda-execute-job-throttles`: Lambda throttling alert
+- [ ] **根本原因を文書化**: インシデントログに失敗の原因を記録
+- [ ] **データ損失を確認**: 失敗中に問い合わせデータが失われていないか確認
+- [ ] **失敗した問い合わせ数を確認**: いくつの問い合わせが失敗したか？再試行されたか？
+- [ ] **閾値の妥当性を評価**: 5%は適切な閾値だったか？必要に応じて調整
+- [ ] **エラーハンドリングを更新**: 必要に応じてログやエラーメッセージを改善
+- [ ] **チームにコミュニケーション**: インシデントと解決策を要約
 
 ---
 
-## References
+## ダッシュボードとモニタリング
 
-- [AWS Step Functions Documentation](https://docs.aws.amazon.com/step-functions/)
-- [Step Functions Metrics](https://docs.aws.amazon.com/step-functions/latest/dg/procedure-cw-metrics.html)
-- [AWS Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
-- [Amazon SES Documentation](https://docs.aws.amazon.com/ses/)
-- [Design Document](../../plans/2025-12-29-pf14-monitoring-design.md)
+### リアルタイムモニタリング
+
+- [CloudWatch ダッシュボード - PF2](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF2-Dashboard)
+  - 実行の成功/失敗率を表示
+  - 最近の実行履歴を表示
+  - 各ステートのレイテンシーメトリクス
+
+### 関連アラーム
+
+- `pf2-sfn-workflow-execution-timedout`: 実行タイムアウトアラート（同様に重大）
+- `pf2-lambda-execute-job-error-rate`: Lambda エラー率アラート
+- `pf2-lambda-execute-job-throttles`: Lambda スロットリングアラート
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+## 参考資料
+
+- [AWS Step Functions ドキュメント](https://docs.aws.amazon.com/step-functions/)
+- [Step Functions メトリクス](https://docs.aws.amazon.com/step-functions/latest/dg/procedure-cw-metrics.html)
+- [AWS Bedrock ドキュメント](https://docs.aws.amazon.com/bedrock/)
+- [Amazon SES ドキュメント](https://docs.aws.amazon.com/ses/)
+- [設計ドキュメント](../../plans/2025-12-29-pf14-monitoring-design.md)
+
+---
+
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと

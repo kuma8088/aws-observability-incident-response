@@ -1,201 +1,92 @@
-# PF14: AWS Integrated Monitoring & Incident Response
+# AWS 統合監視・インシデント対応基盤
 
 AWS統合監視・インシデント対応基盤。AWS Well-Architected Frameworkに準拠した24/365監視インフラをTerraformで構築。
 
-## Overview
+## 概要
 
-This project provides a Terraform-based unified monitoring infrastructure for multiple AWS applications. It integrates CloudWatch, X-Ray, SNS, and Slack for comprehensive observability with cost-effective alarm management.
+本プロジェクトは、複数のAWSアプリケーション向けにTerraformベースの統合監視インフラを提供します。CloudWatch、X-Ray、SNS、Slackを統合し、コスト効率の良いアラーム管理で包括的な可観測性を実現します。
 
-### Key Features
+### 主な機能
 
-- **32 CloudWatch Alarms** - Optimized for AWS Well-Architected Framework compliance
-- **3-Tier Alert System** - Critical/Warning/Info severity separation with Slack notifications
-- **CloudWatch Logs Insights** - Pre-built queries for Lambda troubleshooting
-- **X-Ray Tracing** - 20% sampling with 100% error capture
-- **Runbooks** - 7 incident response procedures (4 PF1, 3 PF2)
+- **32個のCloudWatch Alarms** - AWS Well-Architected Framework準拠に最適化
+- **3段階アラートシステム** - Critical/Warning/Infoの重要度分離とSlack通知
+- **CloudWatch Logs Insights** - Lambda、API Gateway、Step Functionsトラブルシューティング用の事前定義クエリ
+- **X-Ray トレーシング** - 20%サンプリング、エラーは100%キャプチャ
+- **CloudWatch ダッシュボード** - 3つのダッシュボード（食事カロリー管理アプリ、生成AI問い合わせシステム、概要）を無料枠内で構築
 
-### Monitored Systems
+### 監視対象システム
 
-| System | Components | Alarms |
-|--------|------------|--------|
-| **PF1** (Meal Management App) | Lambda, API Gateway, DynamoDB, Bedrock | 28 |
-| **PF2** (Inquiry System) | Lambda, Step Functions, SQS, Glue | 4 |
+| システム | コンポーネント | アラーム数 |
+|----------|----------------|------------|
+| [食事カロリー管理アプリ](https://github.com/kuma8088/meal-management-app) | Lambda, API Gateway, DynamoDB, Bedrock | 28 |
+| [生成AI問い合わせシステム](https://github.com/kuma8088/inquirysystem) | Lambda, Step Functions, SQS, Glue | 4 |
 
-### Monthly Cost
+### 月額コスト
 
-**~$6.83/month** (development environment)
-- CloudWatch Alarms: $3.20 (32 alarms)
-- Anomaly Detection: $1.80 (6 alarms)
-- Logs Insights: $0 (pay per query)
-- X-Ray: $0 (free tier)
-- SNS + Chatbot: ~$0.01
-
----
-
-## What You Can Do
-
-### Real-time Monitoring & Alerting
-
-```
-Lambda Error発生
-    ↓
-CloudWatch Alarm発火（Error Rate > 5%）
-    ↓
-SNS → AWS Chatbot → #alerts-critical に即時通知
-    ↓
-Runbook参照 → Logs Insightsでエラー検索 → X-Rayでトレース確認
-    ↓
-原因特定・修正
-```
-
-### Alarm Configuration
-
-**PF1 - Meal Management App (28 alarms)**
-
-| Service | Alarms | Trigger |
-|---------|--------|---------|
-| Lambda (3 functions) | Error Rate, Throttles, Duration | > 5%, > 0, > timeout×80% |
-| API Gateway | 5XX, 4XX, Latency (Anomaly) | > 1%, Anomaly, Anomaly |
-| DynamoDB (2 tables) | System Errors, Throttles | > 0, > 0 |
-| Bedrock | Client Errors, Server Errors, Latency | > 5%, > 0, Anomaly |
-
-**PF2 - Inquiry System (4 alarms)**
-
-| Service | Alarms | Trigger |
-|---------|--------|---------|
-| Step Functions | Execution Failed, Timeout | > 5%, > 0 |
-| SQS | DLQ Messages | > 0 |
-| Glue | Job Failed | > 0 |
-
-### Logs Insights Queries
-
-Pre-built queries for Lambda troubleshooting:
-
-| Query | Purpose | Use Case |
-|-------|---------|----------|
-| `lambda-errors` | Search ERROR/Exception logs | エラー発生時の詳細調査 |
-| `lambda-cold-starts` | Analyze Init Duration | コールドスタート頻度の確認 |
-| `lambda-duration-p99` | Track P99 latency | パフォーマンス劣化の検知 |
-
-### X-Ray Tracing
-
-- **20% sampling** for normal requests
-- **100% capture** for errors (fault/error responses)
-- Service map visualization for dependency analysis
-
-### 3-Tier Slack Notifications
-
-| Channel | Purpose | Response |
-|---------|---------|----------|
-| `#alerts-critical` | System outages | Immediate action required |
-| `#alerts-warning` | Performance degradation | Attention needed |
-| `#alerts-info` | Reports and summaries | Informational |
+**約$6.83/月**（開発環境）
+- CloudWatch Alarms: $3.20（32個）
+- Logs Insights: $0（クエリ実行時課金）
+- X-Ray: $0（無料枠内）
+- SNS + Chatbot: 約$0.01
 
 ---
 
-## Runbooks
+## アーキテクチャ
 
-### PF1 Runbooks
+![AWS 統合監視・インシデント対応基盤 アーキテクチャ図](./architecture.png)
 
-| Runbook | Alert | Description |
-|---------|-------|-------------|
-| [lambda-error-spike.md](docs/runbooks/pf1/lambda-error-spike.md) | Error Rate > 5% | Lambda function error investigation |
-| [dynamodb-throttling.md](docs/runbooks/pf1/dynamodb-throttling.md) | Throttles > 0 | DynamoDB capacity issues |
-| [bedrock-quota-exceeded.md](docs/runbooks/pf1/bedrock-quota-exceeded.md) | Client Errors > 5% | Bedrock API errors and throttling |
-| [api-gateway-5xx.md](docs/runbooks/pf1/api-gateway-5xx.md) | 5XX > 1% | API Gateway server errors |
+> 💡 [architecture.drawio](./architecture.drawio) を draw.io で開くと編集可能
 
-### PF2 Runbooks
-
-| Runbook | Alert | Description |
-|---------|-------|-------------|
-| [step-functions-failure.md](docs/runbooks/pf2/step-functions-failure.md) | Failed Rate > 5% | Workflow execution failures |
-| [sqs-dlq-alert.md](docs/runbooks/pf2/sqs-dlq-alert.md) | DLQ Messages > 0 | Dead letter queue investigation |
-| [glue-job-failure.md](docs/runbooks/pf2/glue-job-failure.md) | Job Failed | ETL job failure analysis |
-
----
-
-## Capabilities & Limitations
-
-| Can Do | Cannot Do |
-|--------|-----------|
-| Real-time alerts with Slack notification | Auto-remediation (Lambda auto-scaling, etc.) |
-| Log analysis with Logs Insights | On-call rotation management (needs PagerDuty) |
-| Distributed tracing with X-Ray | Long-term log retention (needs S3 export) |
-| Incident response runbooks | Detailed APM analysis (needs Datadog) |
-| Cost-effective monitoring (~$7/month) | Incident ticket management integration |
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Data Collection Layer                   │
-│  CloudWatch Metrics | CloudWatch Logs | X-Ray Traces    │
-└─────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│                  Analysis & Detection                    │
-│  CloudWatch Alarms (Static + Anomaly Detection)         │
-│  Logs Insights Saved Queries                            │
-└─────────────────────────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────┐
-│                  Response Layer                          │
-│  SNS Topics (3-tier) → AWS Chatbot → Slack              │
-│  Runbooks for incident response                         │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Module Structure
+### モジュール構成
 
 ```
 modules/
 ├── slack-integration/      # SNS Topics + AWS Chatbot
 ├── xray-tracing/           # X-Ray Sampling Rules + Groups
-├── lambda-monitoring/      # Lambda alarms (3 per function)
-├── api-gateway-monitoring/ # API Gateway alarms
-├── dynamodb-monitoring/    # DynamoDB alarms (2 tables)
-├── bedrock-monitoring/     # Bedrock alarms
-├── step-functions-monitoring/  # Step Functions alarms
-├── sqs-monitoring/         # SQS alarms
-├── glue-monitoring/        # Glue ETL alarms
-└── logs-insights/          # Saved Logs Insights queries
+├── lambda-monitoring/      # Lambdaアラーム（関数あたり3個）
+├── api-gateway-monitoring/ # API Gatewayアラーム
+├── dynamodb-monitoring/    # DynamoDBアラーム（2テーブル）
+├── bedrock-monitoring/     # Bedrockアラーム
+├── step-functions-monitoring/  # Step Functionsアラーム
+├── sqs-monitoring/         # SQSアラーム
+├── glue-monitoring/        # Glue ETLアラーム
+├── cloudwatch-dashboard/   # ダッシュボード定義
+└── logs-insights/          # 保存済みLogs Insightsクエリ
 ```
 
 ---
 
-## Quick Start
+## クイックスタート
 
-### Prerequisites
+### 前提条件
 
 - Terraform >= 1.6.0
-- AWS CLI configured
-- Slack workspace with 3 channels created
+- AWS CLI設定済み
+- 3つのチャンネルが作成されたSlackワークスペース
 
-### 1. Create Slack Channels
+### 1. Slackチャンネルを作成
 
 ```
-#alerts-critical  - System outages, immediate action required
-#alerts-warning   - Performance degradation, attention needed
-#alerts-info      - Reports and summaries
+#alerts-critical  - システム停止、即時対応が必要
+#alerts-warning   - パフォーマンス低下、注意が必要
+#alerts-info      - レポート・サマリー
 ```
 
-### 2. Get Slack IDs
+### 2. Slack IDを取得
 
-**Workspace ID:** Check Slack URL `https://app.slack.com/client/T0XXXXXXXXX/...`
+**ワークスペースID:** SlackのURL `https://app.slack.com/client/T0XXXXXXXXX/...` を確認
 
-**Channel ID:** Open channel → Click channel name → Copy ID from details
+**チャンネルID:** チャンネルを開く → チャンネル名をクリック → 詳細からIDをコピー
 
-### 3. Configure Variables
+### 3. 変数を設定
 
 ```bash
 cd environments/dev
 cp ../../terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your values
+# terraform.tfvarsを編集して値を設定
 ```
 
-### 4. Deploy
+### 4. デプロイ
 
 ```bash
 terraform init
@@ -203,92 +94,226 @@ terraform plan
 terraform apply
 ```
 
-### 5. Connect AWS Chatbot to Slack
+### 5. AWS ChatbotをSlackに接続
 
-After `terraform apply`:
-1. Open [AWS Chatbot Console](https://console.aws.amazon.com/chatbot/)
-2. Click "Configure new client" → Select "Slack"
-3. Authorize your Slack workspace
-4. Verify the 3 Chatbot configurations appear
-
----
-
-## Implementation Status
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| **Phase 1** | Foundation (SNS, Chatbot, X-Ray) | Complete |
-| **Phase 2** | PF1 Monitoring (Lambda, API GW, DynamoDB, Bedrock) | Complete |
-| **Phase 3** | PF2 Monitoring (Step Functions, SQS, Glue) | Complete |
-| **Phase 4** | Cost Monitoring | Skipped (moved to PF15) |
-| **Phase 5** | Testing & Optimization | Complete |
-
-### Phase 5 Highlights
-
-- Alarm count optimized: 46 → 32 (AWS Well-Architected compliant)
-- CloudWatch Logs Insights queries added (3 saved queries)
-- Runbooks created: 4 for PF1, 3 for PF2
-- CLI commands tested and validated
+`terraform apply`後:
+1. [AWS Chatbot コンソール](https://console.aws.amazon.com/chatbot/)を開く
+2. 「Configure new client」をクリック → 「Slack」を選択
+3. Slackワークスペースを認証
+4. 3つのChatbot設定が表示されることを確認
 
 ---
 
-## AWS Well-Architected Alignment
+## 実装状況
 
-| Pillar | Implementation |
-|--------|---------------|
-| **Operational Excellence** | IaC with Terraform, Runbooks, 3-tier alerting |
-| **Security** | IAM least privilege, encrypted SNS |
-| **Reliability** | Zero-tolerance throttle alarms, multi-service monitoring |
-| **Performance Efficiency** | Anomaly detection, X-Ray tracing |
-| **Cost Optimization** | 32 alarms (budget-optimized), free tier usage |
-| **Sustainability** | Efficient sampling (20%), right-sized alarms |
+### 完了フェーズ
+
+| フェーズ | 説明 | ステータス |
+|----------|------|------------|
+| **Phase 1** | 基盤（SNS, Chatbot, X-Ray） | 完了 |
+| **Phase 2** | 食事カロリー管理アプリ監視（Lambda, API GW, DynamoDB, Bedrock） | 完了 |
+| **Phase 3** | 生成AI問い合わせシステム監視（Step Functions, SQS, Glue） | 完了 |
+| **Phase 4** | コスト監視 | スキップ（別プロジェクトへ移行） |
+| **Phase 5** | テスト・最適化 | 完了 |
+
+### Phase 5 ハイライト
+
+- アラーム数を最適化: 46 → 32（AWS Well-Architected準拠）
+- CloudWatch Logs Insightsクエリを追加（Lambda用3クエリ）
+- ランブック作成: 食事カロリー管理アプリ用4つ、生成AI問い合わせシステム用3つ
+- CLIコマンドのテスト・検証完了
+
+### 未実装
+
+| フェーズ | 説明 | ステータス |
+|----------|------|------------|
+| **Phase 6** | ポートフォリオ公開（README、アーキテクチャ図、デモ） | 計画中 |
 
 ---
 
-## Common Commands
+## アラーム設定
+
+### 食事カロリー管理アプリ（28アラーム）
+
+| サービス | アラーム | 重要度 |
+|----------|----------|--------|
+| Lambda（3関数 × 3） | Error Rate, Throttles, Duration | Critical |
+| API Gateway | 5XX, 4XX, Latency（Anomaly × 3） | Critical/Warning |
+| DynamoDB（2テーブル × 3） | System Errors, Read/Write Throttles | Critical |
+| Bedrock | Client Errors, Server Errors, Latency | Critical/Warning |
+
+### 生成AI問い合わせシステム（4アラーム）
+
+| サービス | アラーム | 重要度 |
+|----------|----------|--------|
+| Step Functions | Execution Failed, Timeout | Critical |
+| SQS | DLQ Messages | Critical |
+| Glue | Job Failed | Critical |
+
+### Slack通知マッピング
+
+**Critical（#alerts-critical）**
+
+| サービス | アラート |
+|----------|----------|
+| Lambda | Error Rate > 5%, Throttles > 0, Duration > 80% |
+| API Gateway | 5XX > 1% |
+| DynamoDB | System Errors > 0, Throttles > 0 |
+| Bedrock | Client Errors > 5%, Server Errors > 0 |
+| Step Functions | Failed > 0%, Timeout > 0 |
+| SQS | DLQ Messages > 0 |
+| Glue | Job Failed > 0 |
+
+**Warning（#alerts-warning）**
+
+| サービス | アラート |
+|----------|----------|
+| API Gateway | 4XX Anomaly, Latency Anomaly |
+| Bedrock | Latency Anomaly |
+
+**Info（#alerts-info）**
+
+現在は未使用。将来的に週次サマリー等を送る想定。
+
+### Logs Insights クエリ（3クエリ）
+
+| クエリ | 目的 | ロググループ |
+|--------|------|--------------|
+| Lambda Errors | ERROR/Exceptionログの検索 | `/aws/lambda/*` |
+| Lambda Cold Starts | Init Duration分析 | `/aws/lambda/*` |
+| Lambda Duration P99 | REPORTからP99レイテンシを追跡 | `/aws/lambda/*` |
+
+---
+
+## ランブック
+
+各ランブックは以下の構成で記述されています：
+
+| セクション | 内容 |
+|-----------|------|
+| アラート詳細 | アラーム名、重要度、閾値、通知先 |
+| 影響範囲 | このアラートが発生した時の影響 |
+| 即時対応 | 最初の5分で行うべき確認・対応 |
+| 調査手順 | AWS CLIコマンドを使った詳細調査 |
+| 原因と対処 | よくある原因パターンと修正方法 |
+| 復旧手順 | ロールバック、キャパシティ増加等 |
+| 事後対応 | インシデント後のチェックリスト |
+
+### 食事カロリー管理アプリ ランブック
+
+| ランブック | アラート | 説明 |
+|------------|----------|------|
+| [lambda-error-spike.md](docs/runbooks/pf1/lambda-error-spike.md) | Error Rate > 5% | Lambda関数のエラー調査 |
+| [dynamodb-throttling.md](docs/runbooks/pf1/dynamodb-throttling.md) | Throttles > 0 | DynamoDBキャパシティ問題 |
+| [bedrock-quota-exceeded.md](docs/runbooks/pf1/bedrock-quota-exceeded.md) | Client Errors > 5% | Bedrock APIエラーとスロットリング |
+| [api-gateway-5xx.md](docs/runbooks/pf1/api-gateway-5xx.md) | 5XX > 1% | API Gatewayサーバーエラー |
+
+### 生成AI問い合わせシステム ランブック
+
+| ランブック | アラート | 説明 |
+|------------|----------|------|
+| [step-functions-failure.md](docs/runbooks/pf2/step-functions-failure.md) | Failed Rate > 5% | ワークフロー実行失敗 |
+| [sqs-dlq-alert.md](docs/runbooks/pf2/sqs-dlq-alert.md) | DLQ Messages > 0 | デッドレターキュー調査 |
+| [glue-job-failure.md](docs/runbooks/pf2/glue-job-failure.md) | Job Failed | ETLジョブ失敗分析 |
+
+---
+
+## ドキュメント
+
+| ドキュメント | 説明 |
+|--------------|------|
+| [セットアップガイド](docs/setup-guide.md) | 詳細なインストール手順 |
+
+---
+
+## よく使うコマンド
 
 ```bash
-# Initialize Terraform
+# Terraformを初期化
 cd environments/dev && terraform init
 
-# Validate configuration
+# 設定を検証
 terraform validate
 
-# Preview changes
+# 変更をプレビュー
 terraform plan
 
-# Apply changes
+# 変更を適用
 terraform apply
 
-# Format code
+# コードをフォーマット
 terraform fmt -recursive
 
-# Destroy resources
+# リソースを削除
 terraform destroy
 ```
 
 ---
 
-## Related Projects
+## AWS Well-Architected 対応状況
 
-| Project | Description | Relationship |
-|---------|-------------|--------------|
-| **PF1** | Meal Management App | Monitoring target |
-| **PF2** | Inquiry System | Monitoring target |
-| **PF13** | AWS Security Foundation | Security pillar coverage |
-| **PF15** | Cost Management | Cost pillar coverage |
-| **PF16** | Cloudflare Monitoring | Edge monitoring (separate) |
+| 柱 | 実装内容 |
+|----|----------|
+| **運用上の優秀性** | TerraformによるIaC、ランブック、3段階アラート |
+| **セキュリティ** | IAM最小権限、SNS暗号化 |
+| **信頼性** | スロットリングゼロトレランスアラーム、マルチサービス監視 |
+| **パフォーマンス効率** | Anomaly Detection、X-Rayトレーシング |
+| **コスト最適化** | 32アラーム（予算最適化）、無料枠活用 |
+| **持続可能性** | 効率的なサンプリング（20%）、適正サイズのアラーム |
+
+### セキュリティ
+
+- **SNS暗号化**: 全トピック（Critical/Warning/Info）でAWS管理KMSキー（`alias/aws/sns`）による保存時暗号化
+- **IAM最小権限**:
+  - ChatbotロールはCloudWatchReadOnlyAccessのみ
+  - SNSトピックポリシーはCloudWatch/EventBridgeからのPublishのみ許可
+- **Sensitive変数**: Slack Workspace ID/Channel IDは`sensitive = true`でログ出力時にマスク
+- **Guardrailポリシー**: ChatbotにReadOnlyAccessを適用し実行権限を排除
+
+### 運用上の優秀性
+
+- **IaC**: 全リソースをTerraformで管理、環境別（dev/prod）に分離
+- **タグ戦略**: Terraform `default_tags`で全リソースに自動付与
+  - `Project`: コスト配分、リソース識別用
+  - `Environment`: 環境別フィルタリング（dev/prod）
+  - `ManagedBy`: Terraform管理リソースの識別（手動削除可否の判断）
+  - `Severity`: アラートレベル識別（critical/warning）
+- **ランブック**: 7つのインシデント対応手順書（AWS CLIコマンド付き）
+- **ログ記録**: Chatbot `logging_level = INFO`でアクティビティを記録
+
+### 信頼性
+
+- **ゼロトレランス監視**: DynamoDB Throttle/System Errors、SQS DLQ、Glue Job Failedは1件でもアラート
+- **マルチサービス監視**: Lambda、API Gateway、DynamoDB、Bedrock、Step Functions、SQS、Glueを統合監視
+- **OK通知**: アラーム復旧時も通知（`ok_actions`設定）で状況把握
+
+### パフォーマンス効率
+
+- **Anomaly Detection**: API Gateway Latency、4XX、Bedrockレイテンシは動的閾値で異常検知
+- **X-Ray**: 20%サンプリング + エラー100%キャプチャでボトルネック分析
+- **P99追跡**: Logs InsightsでP99レイテンシを可視化
+
+### コスト最適化
+
+- **アラーム最適化**: AWS推奨に準拠しつつ、重複を排除した最低限のアラーム数に絞り込み
+- **マネージド/サーバーレス活用**: CloudWatch、SNS、X-Ray等のマネージドサービスを利用し、処理実行時のみコスト発生
+- **無料枠活用**: X-Ray、Logs Insights（クエリ時課金）、Chatbotは実質無料枠内で運用可能
+
+### 持続可能性
+
+- **効率的サンプリング**: X-Ray 20%で必要十分なトレースを収集
+- **適正アラーム数**: 過剰な監視を避け、対応可能な数に絞り込み
 
 ---
 
-## License
+## ライセンス
 
 MIT License
 
-## Author
+## 著者
 
 Naoya Iimura - [info@kuma8088.com](mailto:info@kuma8088.com)
 
 ---
 
-**Last Updated:** 2026-01-05
+**最終更新日:** 2026-01-05

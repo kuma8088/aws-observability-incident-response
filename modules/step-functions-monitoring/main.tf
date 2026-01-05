@@ -1,11 +1,11 @@
 # Execution Failed Alarm (Critical)
 resource "aws_cloudwatch_metric_alarm" "execution_failed" {
   alarm_name          = "${var.alarm_name_prefix}-execution-failed"
-  alarm_description   = "Step Functions execution failure rate > 5%"
+  alarm_description   = "Step Functions execution failure rate > 0%"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = var.evaluation_periods
   datapoints_to_alarm = var.datapoints_to_alarm
-  threshold           = 5
+  threshold           = 0
   treat_missing_data  = "notBreaching"
 
   metric_query {

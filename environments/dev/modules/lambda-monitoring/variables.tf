@@ -7,7 +7,6 @@ variable "lambda_functions" {
     # Thresholds (optional, defaults provided)
     error_rate_threshold          = optional(number, 5)  # 5%
     duration_threshold_percentage = optional(number, 80) # 80% of timeout
-    concurrent_executions_enabled = optional(bool, true) # Anomaly detection
   }))
 }
 

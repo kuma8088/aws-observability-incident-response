@@ -74,6 +74,7 @@ module "pf1_dynamodb_monitoring" {
   environment            = var.environment
   critical_sns_topic_arn = module.slack_integration.critical_topic_arn
 
+  # IMPORTANT: Design constraint - limit to 2 tables to stay within alarm budget (32 total)
   dynamodb_tables = {
     "users" = {
       table_name = "${var.project_prefix}-${var.environment}-users"
@@ -83,10 +84,7 @@ module "pf1_dynamodb_monitoring" {
       table_name = "${var.project_prefix}-${var.environment}-posts"
       gsi_names  = ["user-id-index", "created-at-index"]
     }
-    "sessions" = {
-      table_name = "${var.project_prefix}-${var.environment}-sessions"
-      gsi_names  = []
-    }
+    # "sessions" table excluded to reduce alarm count
   }
 }
 
