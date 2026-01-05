@@ -276,6 +276,45 @@ terraform destroy
 | **コスト最適化** | 32アラーム（予算最適化）、無料枠活用 |
 | **持続可能性** | 効率的なサンプリング（20%）、適正サイズのアラーム |
 
+### セキュリティ
+
+- **SNS暗号化**: 全トピック（Critical/Warning/Info）でAWS管理KMSキー（`alias/aws/sns`）による保存時暗号化
+- **IAM最小権限**:
+  - ChatbotロールはCloudWatchReadOnlyAccessのみ
+  - SNSトピックポリシーはCloudWatch/EventBridgeからのPublishのみ許可
+- **Sensitive変数**: Slack Workspace ID/Channel IDは`sensitive = true`でログ出力時にマスク
+- **Guardrailポリシー**: ChatbotにReadOnlyAccessを適用し実行権限を排除
+
+### 運用上の優秀性
+
+- **IaC**: 全リソースをTerraformで管理、環境別（dev/prod）に分離
+- **タグ戦略**: 全リソースにProject/Environment/ManagedBy/Severityタグを自動付与
+- **ランブック**: 7つのインシデント対応手順書（AWS CLIコマンド付き）
+- **ログ記録**: Chatbot `logging_level = INFO`でアクティビティを記録
+
+### 信頼性
+
+- **ゼロトレランス監視**: DynamoDB Throttle/System Errors、SQS DLQ、Glue Job Failedは1件でもアラート
+- **マルチサービス監視**: Lambda、API Gateway、DynamoDB、Bedrock、Step Functions、SQS、Glueを統合監視
+- **OK通知**: アラーム復旧時も通知（`ok_actions`設定）で状況把握
+
+### パフォーマンス効率
+
+- **Anomaly Detection**: API Gateway Latency、4XX、Bedrockレイテンシは動的閾値で異常検知
+- **X-Ray**: 20%サンプリング + エラー100%キャプチャでボトルネック分析
+- **P99追跡**: Logs InsightsでP99レイテンシを可視化
+
+### コスト最適化
+
+- **アラーム最適化**: 46個から32個に削減（AWS推奨に準拠しつつ重複排除）
+- **無料枠活用**: X-Ray、Logs Insights（クエリ時課金）、SNS/Chatbotは実質無料
+- **月額$6.83**: 開発環境で$10以下を維持
+
+### 持続可能性
+
+- **効率的サンプリング**: X-Ray 20%で必要十分なトレースを収集
+- **適正アラーム数**: 過剰な監視を避け、対応可能な数に絞り込み
+
 ---
 
 ## 関連プロジェクト
