@@ -165,6 +165,31 @@ After `terraform apply`:
 | SQS | DLQ Messages | Critical |
 | Glue | Job Failed | Critical |
 
+### Slack通知マッピング
+
+**Critical（#alerts-critical）**
+
+| サービス | アラート |
+|----------|----------|
+| Lambda | Error Rate > 5%, Throttles > 0, Duration > 80% |
+| API Gateway | 5XX > 1% |
+| DynamoDB | System Errors > 0, Throttles > 0 |
+| Bedrock | Client Errors > 5%, Server Errors > 0 |
+| Step Functions | Failed > 0%, Timeout > 0 |
+| SQS | DLQ Messages > 0 |
+| Glue | Job Failed > 0 |
+
+**Warning（#alerts-warning）**
+
+| サービス | アラート |
+|----------|----------|
+| API Gateway | 4XX Anomaly, Latency Anomaly |
+| Bedrock | Latency Anomaly |
+
+**Info（#alerts-info）**
+
+現在は未使用。将来的に週次サマリー等を送る想定。
+
 ### Logs Insights Queries (3 queries)
 
 | Query | Purpose | Log Groups |
