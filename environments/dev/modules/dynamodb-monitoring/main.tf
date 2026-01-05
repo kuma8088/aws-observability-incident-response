@@ -29,37 +29,6 @@ resource "aws_cloudwatch_metric_alarm" "dynamodb_system_errors" {
   }
 }
 
-# DynamoDB User Errors (for monitoring, not alerting)
-# Note: User errors are typically application issues, monitored but not critical
-resource "aws_cloudwatch_metric_alarm" "dynamodb_user_errors" {
-  for_each = var.dynamodb_tables
-
-  alarm_name          = "${var.project_prefix}-${var.environment}-dynamodb-${each.key}-user-errors"
-  alarm_description   = "DynamoDB table ${each.value.table_name} has elevated user errors"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "UserErrors"
-  namespace           = "AWS/DynamoDB"
-  period              = 300 # 5 minutes
-  statistic           = "Sum"
-  threshold           = 10 # 10 errors in 5 minutes
-  treat_missing_data  = "notBreaching"
-
-  dimensions = {
-    TableName = each.value.table_name
-  }
-
-  alarm_actions = [var.critical_sns_topic_arn]
-  ok_actions    = [var.critical_sns_topic_arn]
-
-  tags = {
-    Name       = "${var.project_prefix}-${var.environment}-dynamodb-${each.key}-user-errors"
-    Table      = each.value.table_name
-    Severity   = "critical"
-    MetricType = "user-errors"
-  }
-}
-
 # DynamoDB Read Throttled Requests (Critical)
 # AWS推奨: スロットリングは即座に対応が必要（ゼロトレランス）
 resource "aws_cloudwatch_metric_alarm" "dynamodb_read_throttles" {
