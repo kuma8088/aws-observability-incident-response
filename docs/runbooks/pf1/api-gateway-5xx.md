@@ -1,45 +1,45 @@
-# API Gateway 5xx Errors Runbook
+# API Gateway 5xx エラー ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf1-apigw-5xx-errors` |
-| **Severity** | Critical |
-| **Service** | Amazon API Gateway |
-| **Metric** | 5XXError > 1% |
-| **Threshold** | 1% error rate over 5 minutes |
-| **Slack Channel** | #alerts-critical |
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf1-apigw-5xx-errors` |
+| **重要度** | Critical |
+| **サービス** | Amazon API Gateway |
+| **メトリクス** | 5XXError > 1% |
+| **閾値** | 5分間でエラーレート1%超過 |
+| **Slack チャンネル** | #alerts-critical |
 | **API** | mealmgtsystem-api (REST API) |
 
 ---
 
-## What This Alert Means
+## このアラートの意味
 
-This alert triggers when API Gateway returns 5xx errors (server-side errors) exceeding 1% of total requests. This indicates backend issues affecting multiple users.
+このアラートは、API Gateway が返す 5xx エラー（サーバーサイドエラー）が総リクエストの1%を超えた場合にトリガーされます。これは、複数のユーザーに影響するバックエンドの問題を示しています。
 
-**Impact:**
-- API requests are failing with server errors
-- Users cannot access the application
-- Data operations (meal logging, food search) are unavailable
+**影響:**
+- API リクエストがサーバーエラーで失敗している
+- ユーザーがアプリケーションにアクセスできない
+- データ操作（食事記録、食品検索）が利用不可
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## 即時対応（0-5分）
 
-### 1. Check API Gateway Console
+### 1. API Gateway コンソールを確認
 
-Navigate to: [API Gateway Console](https://console.aws.amazon.com/apigateway/home?region=ap-northeast-1)
+アクセス先: [API Gateway Console](https://console.aws.amazon.com/apigateway/home?region=ap-northeast-1)
 
-Select API: `mealmgtsystem-api`
-Check:
-- **Dashboard** for recent error rates
-- **Stages** > `dev` > **Logs/Tracing** for execution logs
+API を選択: `mealmgtsystem-api`
+確認事項:
+- **Dashboard** で最近のエラーレート
+- **Stages** > `dev` > **Logs/Tracing** で実行ログ
 
-### 2. Check CloudWatch Metrics
+### 2. CloudWatch メトリクスを確認
 
 ```bash
-# Get 5xx error count
+# 5xx エラー数を取得
 aws cloudwatch get-metric-statistics \
   --namespace AWS/ApiGateway \
   --metric-name 5XXError \
@@ -49,7 +49,7 @@ aws cloudwatch get-metric-statistics \
   --period 60 \
   --statistics Sum
 
-# Get total request count for context
+# 総リクエスト数を取得（状況把握のため）
 aws cloudwatch get-metric-statistics \
   --namespace AWS/ApiGateway \
   --metric-name Count \
@@ -60,16 +60,16 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### 3. Check X-Ray Traces
+### 3. X-Ray トレースを確認
 
-Navigate to: [X-Ray Traces](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
+アクセス先: [X-Ray Traces](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
 
-Filter: `service(id(name: "mealmgtsystem-api")) AND http.status_code >= 500`
+フィルター: `service(id(name: "mealmgtsystem-api")) AND http.status_code >= 500`
 
-### 4. Check Lambda Function Errors
+### 4. Lambda 関数エラーを確認
 
 ```bash
-# Check Lambda errors for all PF1 functions
+# PF1 の全 Lambda 関数のエラーを確認
 for func in api-handler data-processor auth-handler; do
   echo "=== mealmgtsystem-dev-$func ==="
   aws cloudwatch get-metric-statistics \
@@ -85,11 +85,11 @@ done
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Identify Error Pattern
+### ステップ 1: エラーパターンの特定
 
-Check CloudWatch Logs Insights:
+CloudWatch Logs Insights を確認:
 ```sql
 fields @timestamp, @message, httpMethod, path, status
 | filter status >= 500
@@ -97,12 +97,12 @@ fields @timestamp, @message, httpMethod, path, status
 | limit 100
 ```
 
-Log group: `/aws/api-gateway/mealmgtsystem-api`
+ロググループ: `/aws/api-gateway/mealmgtsystem-api`
 
-### Step 2: Check Integration Latency
+### ステップ 2: Integration Latency を確認
 
 ```bash
-# High integration latency may indicate Lambda issues
+# 高い Integration Latency は Lambda の問題を示す可能性
 aws cloudwatch get-metric-statistics \
   --namespace AWS/ApiGateway \
   --metric-name IntegrationLatency \
@@ -113,7 +113,7 @@ aws cloudwatch get-metric-statistics \
   --statistics Average,Maximum,p99
 ```
 
-### Step 3: Check Lambda Throttling
+### ステップ 3: Lambda スロットリングを確認
 
 ```bash
 aws cloudwatch get-metric-statistics \
@@ -126,27 +126,27 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### Step 4: Check Downstream Services
+### ステップ 4: ダウンストリームサービスを確認
 
-If Lambda is healthy, check downstream:
-- **DynamoDB**: Throttling or errors
-- **Bedrock**: API errors
-- **Cognito**: Authentication issues
+Lambda が正常な場合、ダウンストリームを確認:
+- **DynamoDB**: スロットリングまたはエラー
+- **Bedrock**: API エラー
+- **Cognito**: 認証の問題
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と対処法
 
-### 1. Lambda Integration Timeout
+### 1. Lambda Integration タイムアウト
 
-**Symptoms:**
-- 504 Gateway Timeout errors
-- IntegrationLatency near API Gateway timeout (29 seconds)
-- Lambda runs but doesn't return in time
+**症状:**
+- 504 Gateway Timeout エラー
+- IntegrationLatency が API Gateway タイムアウト（29秒）に近い
+- Lambda は実行されるが、時間内に応答しない
 
-**Investigation:**
+**調査:**
 ```bash
-# Check Lambda duration
+# Lambda の Duration を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Duration \
@@ -157,53 +157,53 @@ aws cloudwatch get-metric-statistics \
   --statistics Maximum
 ```
 
-**Fix:**
-1. Increase Lambda timeout (max 15 min for Lambda, but API Gateway max is 29 sec):
+**対処法:**
+1. Lambda タイムアウトを増加（Lambda 最大15分、ただし API Gateway 最大は29秒）:
    ```bash
    aws lambda update-function-configuration \
      --function-name mealmgtsystem-dev-api-handler \
      --timeout 25
    ```
-2. Optimize Lambda code for faster execution
-3. Consider async processing for long operations
+2. Lambda コードを最適化して実行を高速化
+3. 長時間の操作には非同期処理を検討
 
-### 2. Lambda Throttling
+### 2. Lambda スロットリング
 
-**Symptoms:**
-- 502 Bad Gateway errors
-- Throttles metric > 0
-- High concurrent executions
+**症状:**
+- 502 Bad Gateway エラー
+- Throttles メトリクス > 0
+- 同時実行数が高い
 
-**Investigation:**
+**調査:**
 ```bash
-# Check concurrent executions
+# 同時実行数を確認
 aws lambda get-account-settings \
   --query 'AccountUsage.ConcurrentExecutions'
 
-# Check function concurrency
+# 関数の同時実行数を確認
 aws lambda get-function-concurrency \
   --function-name mealmgtsystem-dev-api-handler
 ```
 
-**Fix:**
-1. Increase reserved concurrency:
+**対処法:**
+1. 予約済み同時実行数を増加:
    ```bash
    aws lambda put-function-concurrency \
      --function-name mealmgtsystem-dev-api-handler \
      --reserved-concurrent-executions 100
    ```
-2. Request account limit increase via AWS Support
+2. AWS サポートを通じてアカウント制限の増加をリクエスト
 
-### 3. Lambda Crashes/Errors
+### 3. Lambda クラッシュ/エラー
 
-**Symptoms:**
-- 502 Bad Gateway errors
-- Lambda Errors metric > 0
-- Error messages in Lambda logs
+**症状:**
+- 502 Bad Gateway エラー
+- Lambda Errors メトリクス > 0
+- Lambda ログにエラーメッセージ
 
-**Investigation:**
+**調査:**
 ```bash
-# Get recent Lambda errors
+# 最近の Lambda エラーを取得
 aws logs filter-log-events \
   --log-group-name /aws/lambda/mealmgtsystem-dev-api-handler \
   --start-time $(date -u -v-15M +%s000 2>/dev/null || echo $(($(date +%s) - 900))000) \
@@ -211,9 +211,9 @@ aws logs filter-log-events \
   --limit 20
 ```
 
-**Fix:**
-1. Review error logs and fix code issues
-2. Roll back to previous working version:
+**対処法:**
+1. エラーログを確認してコードの問題を修正
+2. 以前の動作するバージョンにロールバック:
    ```bash
    aws lambda update-alias \
      --function-name mealmgtsystem-dev-api-handler \
@@ -221,102 +221,102 @@ aws logs filter-log-events \
      --function-version <PREVIOUS_VERSION>
    ```
 
-### 4. DynamoDB Issues
+### 4. DynamoDB の問題
 
-**Symptoms:**
+**症状:**
 - 500 Internal Server Error
-- Lambda logs show DynamoDB errors
-- DynamoDB throttling or system errors
+- Lambda ログに DynamoDB エラー
+- DynamoDB のスロットリングまたはシステムエラー
 
-**Investigation:**
-See [DynamoDB Throttling Runbook](./dynamodb-throttling.md)
+**調査:**
+[DynamoDB スロットリング ランブック](./dynamodb-throttling.md) を参照
 
-**Fix:**
-1. Increase DynamoDB capacity
-2. Switch to on-demand billing
-3. Enable auto-scaling
+**対処法:**
+1. DynamoDB 容量を増加
+2. オンデマンド課金に切り替え
+3. オートスケーリングを有効化
 
-### 5. Bedrock API Failures
+### 5. Bedrock API 障害
 
-**Symptoms:**
-- 500 errors on AI-related endpoints
-- Lambda logs show Bedrock errors
-- High latency on AI features
+**症状:**
+- AI 関連エンドポイントで 500 エラー
+- Lambda ログに Bedrock エラー
+- AI 機能でレイテンシが高い
 
-**Investigation:**
-See [Bedrock API Errors Runbook](./bedrock-quota-exceeded.md)
+**調査:**
+[Bedrock API エラー ランブック](./bedrock-quota-exceeded.md) を参照
 
-**Fix:**
-1. Implement graceful degradation
-2. Add retry logic with backoff
-3. Check Bedrock service health
+**対処法:**
+1. グレースフルデグラデーションを実装
+2. バックオフ付きリトライロジックを追加
+3. Bedrock サービスの正常性を確認
 
-### 6. API Gateway Configuration Issue
+### 6. API Gateway 設定の問題
 
-**Symptoms:**
-- 500 errors immediately (no integration called)
-- Recent deployment
-- Mapping template errors
+**症状:**
+- 即座に 500 エラー（integration が呼ばれない）
+- 最近のデプロイ
+- マッピングテンプレートのエラー
 
-**Investigation:**
-Check API Gateway execution logs:
+**調査:**
+API Gateway 実行ログを確認:
 ```bash
-# Enable execution logging if not enabled
+# 実行ログが有効でない場合は有効化
 aws apigateway update-stage \
   --rest-api-id <API_ID> \
   --stage-name dev \
   --patch-operations op=replace,path=/logging/loglevel,value=INFO
 ```
 
-**Fix:**
-1. Review recent API changes
-2. Validate integration request/response mappings
-3. Roll back to previous stage deployment
+**対処法:**
+1. 最近の API 変更を確認
+2. integration リクエスト/レスポンスのマッピングを検証
+3. 以前のステージデプロイメントにロールバック
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Roll Back Lambda
+### オプション 1: Lambda のロールバック
 
 ```bash
-# List recent versions
+# 最近のバージョンをリスト
 aws lambda list-versions-by-function \
   --function-name mealmgtsystem-dev-api-handler \
   --query 'Versions[-5:].[Version,LastModified]'
 
-# Update alias to previous version
+# エイリアスを以前のバージョンに更新
 aws lambda update-alias \
   --function-name mealmgtsystem-dev-api-handler \
   --name live \
   --function-version <PREVIOUS_VERSION>
 ```
 
-### Option 2: Roll Back API Gateway Stage
+### オプション 2: API Gateway ステージのロールバック
 
 ```bash
-# List deployments
+# デプロイメントをリスト
 aws apigateway get-deployments \
   --rest-api-id <API_ID> \
   --query 'items[-5:].[id,createdDate]'
 
-# Update stage to previous deployment
+# ステージを以前のデプロイメントに更新
 aws apigateway update-stage \
   --rest-api-id <API_ID> \
   --stage-name dev \
   --patch-operations op=replace,path=/deploymentId,value=<PREVIOUS_DEPLOYMENT_ID>
 ```
 
-### Option 3: Emergency Capacity Increase
+### オプション 3: 緊急キャパシティ増加
 
-If the issue is capacity-related:
+問題がキャパシティに関連している場合:
 ```bash
-# Increase Lambda concurrency
+# Lambda 同時実行数を増加
 aws lambda put-function-concurrency \
   --function-name mealmgtsystem-dev-api-handler \
   --reserved-concurrent-executions 500
 
-# Switch DynamoDB to on-demand
+# DynamoDB をオンデマンドに切り替え
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --billing-mode PAY_PER_REQUEST
@@ -324,35 +324,35 @@ aws dynamodb update-table \
 
 ---
 
-## Post-Incident
+## インシデント後の対応
 
-After the alert is resolved:
+アラートが解決した後:
 
-- [ ] **Document Root Cause**: Record what caused the 5xx errors
-- [ ] **Review Error Handling**: Improve error responses and logging
-- [ ] **Load Test**: Verify system can handle expected traffic
-- [ ] **Update Alerts**: Adjust threshold if 1% is too sensitive
-- [ ] **Review Architecture**: Consider async processing for heavy operations
+- [ ] **根本原因の文書化**: 5xx エラーの原因を記録
+- [ ] **エラーハンドリングの見直し**: エラーレスポンスとロギングを改善
+- [ ] **負荷テスト**: システムが想定トラフィックを処理できることを確認
+- [ ] **アラートの更新**: 1%が敏感すぎる場合は閾値を調整
+- [ ] **アーキテクチャの見直し**: 重い操作には非同期処理を検討
 
 ---
 
-## Dashboard and Monitoring
+## ダッシュボードと監視
 
-### Real-time Monitoring
+### リアルタイム監視
 
 - [CloudWatch Dashboard - PF1](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF1-Dashboard)
 - [API Gateway Dashboard](https://console.aws.amazon.com/apigateway/home?region=ap-northeast-1)
 
-### Related Alarms
+### 関連アラーム
 
-- `pf1-apigw-latency-anomaly`: High latency warning
-- `pf1-apigw-4xx-errors`: Client error rate
-- `pf1-lambda-<function>-error-rate`: Lambda errors
-- `pf1-lambda-<function>-throttles`: Lambda throttling
+- `pf1-apigw-latency-anomaly`: 高レイテンシ警告
+- `pf1-apigw-4xx-errors`: クライアントエラーレート
+- `pf1-lambda-<function>-error-rate`: Lambda エラー
+- `pf1-lambda-<function>-throttles`: Lambda スロットリング
 
 ---
 
-## References
+## 参考資料
 
 - [API Gateway Monitoring](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-monitoring.html)
 - [API Gateway Troubleshooting](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-troubleshooting.html)
@@ -361,6 +361,6 @@ After the alert is resolved:
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと

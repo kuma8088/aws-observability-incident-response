@@ -1,61 +1,61 @@
-# Glue ETL Job Failure Runbook
+# Glue ETL ジョブ失敗対応ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf2-glue-dynamodb_export-job-failed` |
-| **Severity** | Critical |
-| **Service** | AWS Glue (ETL) |
-| **Metric** | glue.driver.aggregate.numFailedTasks |
-| **Threshold** | > 0 (Zero Tolerance) |
-| **Slack Channel** | #alerts-critical |
-| **Job Name** | `inquiry-export-dev` |
-| **Schedule** | Daily (typically midnight or specified schedule) |
-
----
-
-## What This Alert Means
-
-This alert triggers when the AWS Glue ETL job that exports inquiry data from DynamoDB to S3 for analytics encounters a failed task. The job is responsible for:
-1. Reading inquiry data from the DynamoDB `inquiry-dev` table
-2. Transforming the data (cleaning, formatting)
-3. Writing the data to S3 for analysis with Athena
-
-**Impact:**
-- Inquiry analytics data is not being exported daily
-- Athena queries on recent inquiry data will be stale
-- Data pipeline integrity is compromised
-- Analytics dashboards will show outdated information
-
-**Why Zero Tolerance?**
-A single failed task indicates the job did not complete successfully. Data exports must be reliable—gaps in the data pipeline can lead to missing insights and lost data.
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf2-glue-dynamodb_export-job-failed` |
+| **重要度** | Critical |
+| **サービス** | AWS Glue (ETL) |
+| **メトリクス** | glue.driver.aggregate.numFailedTasks |
+| **閾値** | > 0（ゼロトレランス） |
+| **Slack チャンネル** | #alerts-critical |
+| **ジョブ名** | `inquiry-export-dev` |
+| **スケジュール** | 毎日（通常は深夜または指定されたスケジュール） |
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## このアラートの意味
 
-### 1. Check Glue Job Status
+このアラートは、DynamoDB から S3 への問い合わせデータエクスポートを行う AWS Glue ETL ジョブでタスクが失敗した場合に発火します。このジョブは以下の処理を担当しています:
+1. DynamoDB `inquiry-dev` テーブルから問い合わせデータを読み取り
+2. データを変換（クリーニング、フォーマット）
+3. Athena で分析するために S3 にデータを書き込み
 
-Navigate to: [AWS Glue Jobs Console](https://console.aws.amazon.com/glue/home?region=ap-northeast-1#etl:tab=jobs)
+**影響:**
+- 問い合わせ分析データが毎日エクスポートされていない
+- 最新の問い合わせデータに対する Athena クエリが古くなる
+- データパイプラインの整合性が損なわれる
+- 分析ダッシュボードに古い情報が表示される
 
-**What to do:**
-1. Click on the job named `inquiry-export-dev`
-2. Click on the **Runs** tab
-3. Find the most recent failed run
-4. Note the **Run ID** and **State**
+**なぜゼロトレランスなのか？**
+タスクが1つでも失敗すると、ジョブが正常に完了していないことを示します。データエクスポートは信頼性が必要です—データパイプラインのギャップは、インサイトの欠落やデータ損失につながる可能性があります。
 
-### 2. Get Job Run Details via CLI
+---
+
+## 即時対応（0-5分）
+
+### 1. Glue ジョブのステータスを確認
+
+アクセス先: [AWS Glue ジョブコンソール](https://console.aws.amazon.com/glue/home?region=ap-northeast-1#etl:tab=jobs)
+
+**実行手順:**
+1. `inquiry-export-dev` という名前のジョブをクリック
+2. **実行** タブをクリック
+3. 最新の失敗した実行を見つける
+4. **Run ID** と **State** をメモ
+
+### 2. CLI でジョブ実行の詳細を取得
 
 ```bash
-# Get the last 5 job runs
+# 最新5件のジョブ実行を取得
 aws glue get-job-runs \
   --job-name inquiry-export-dev \
   --max-results 5 \
   --query 'JobRuns[0:5].[Id,State,StartedOn,CompletedOn,ErrorMessage]' \
   --output table
 
-# Get detailed info for the most recent failed run
+# 最新の失敗した実行の詳細を取得
 RUN_ID="<from-above-output>"
 
 aws glue get-job-run \
@@ -64,11 +64,11 @@ aws glue get-job-run \
   --query 'JobRun.[State,ErrorMessage,ExecutionTime,MaxCapacity]'
 ```
 
-### 3. Check CloudWatch Logs
+### 3. CloudWatch Logs を確認
 
-Navigate to: [CloudWatch Logs - Glue Jobs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws-glue$252Fjobs)
+アクセス先: [CloudWatch Logs - Glue Jobs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:log-groups/log-group/$252Faws-glue$252Fjobs)
 
-**Search for job logs:**
+**ジョブログの検索:**
 ```
 fields @timestamp, @message, @logStream
 | filter @logStream like /inquiry-export-dev/
@@ -77,15 +77,15 @@ fields @timestamp, @message, @logStream
 | limit 100
 ```
 
-### 4. Check DynamoDB Source Table
+### 4. DynamoDB ソーステーブルを確認
 
 ```bash
-# Verify the source table exists and is accessible
+# ソーステーブルが存在しアクセス可能か確認
 aws dynamodb describe-table \
   --table-name inquiry-dev \
   --query 'Table.[TableStatus,ItemCount,TableSizeBytes]'
 
-# Check table's read capacity
+# テーブルの読み取りキャパシティを確認
 aws dynamodb describe-table \
   --table-name inquiry-dev \
   --query 'Table.[BillingModeSummary.BillingMode,ProvisionedThroughput]'
@@ -93,32 +93,32 @@ aws dynamodb describe-table \
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Identify the Failure Type
+### ステップ 1: 障害タイプを特定
 
-Glue logs will indicate where the job failed. Common failure locations:
+Glue ログはジョブが失敗した場所を示します。よくある失敗箇所:
 
 ```bash
-# Search logs for specific error type
+# 特定のエラータイプをログで検索
 aws logs filter-log-events \
   --log-group-name /aws-glue/jobs \
   --filter-pattern "inquiry-export-dev" \
   --query 'events[?contains(message, `Error`)].[timestamp,message]' \
-  --start-time $(( ($(date +%s) - 3600) * 1000 ))  # Last hour in milliseconds
+  --start-time $(( ($(date +%s) - 3600) * 1000 ))  # 直近1時間（ミリ秒）
 ```
 
-**Common error types:**
-- `DynamoDBReadTimeoutException` → DynamoDB timeout
-- `S3.ClientError` → S3 access issue
-- `ValidationError` → Schema mismatch
-- `OutOfMemory` → Job resource exhausted
-- `Python syntax error` → Script code bug
+**よくあるエラータイプ:**
+- `DynamoDBReadTimeoutException` → DynamoDB タイムアウト
+- `S3.ClientError` → S3 アクセスの問題
+- `ValidationError` → スキーマ不一致
+- `OutOfMemory` → ジョブリソース不足
+- `Python syntax error` → スクリプトコードのバグ
 
-### Step 2: Check Job Configuration
+### ステップ 2: ジョブ設定を確認
 
 ```bash
-# Get the job definition
+# ジョブ定義を取得
 aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.[
@@ -135,82 +135,82 @@ aws glue get-job \
   ]'
 ```
 
-**Key parameters to review:**
-- `MaxCapacity`: Number of DPUs (Data Processing Units) allocated
-- `Timeout`: How long the job has to complete
-- `Role`: IAM role for S3/DynamoDB access
-- `Command.ScriptLocation`: The Python script S3 path
+**確認すべき主要パラメータ:**
+- `MaxCapacity`: 割り当てられた DPU（Data Processing Units）数
+- `Timeout`: ジョブ完了までの制限時間
+- `Role`: S3/DynamoDB アクセス用 IAM ロール
+- `Command.ScriptLocation`: Python スクリプトの S3 パス
 
-### Step 3: Verify Permissions
+### ステップ 3: 権限を確認
 
 ```bash
-# Get the Glue job's IAM role
+# Glue ジョブの IAM ロールを取得
 ROLE_NAME=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.Role' --output text)
 
-# Check role has DynamoDB read access
+# ロールに DynamoDB 読み取り権限があるか確認
 aws iam get-role-policy \
   --role-name "$ROLE_NAME" \
   --policy-name DynamoDBReadPolicy
 
-# Check role has S3 write access
+# ロールに S3 書き込み権限があるか確認
 aws iam get-role-policy \
   --role-name "$ROLE_NAME" \
   --policy-name S3WritePolicy
 ```
 
-### Step 4: Review the Python Script
+### ステップ 4: Python スクリプトをレビュー
 
 ```bash
-# Get the script location from job configuration
+# ジョブ設定からスクリプトの場所を取得
 SCRIPT_URL=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.Command.ScriptLocation' --output text)
 
-# Download and review the script (if in S3)
-# S3 URL format: s3://bucket-name/path/to/script.py
+# スクリプトをダウンロードしてレビュー（S3 にある場合）
+# S3 URL 形式: s3://bucket-name/path/to/script.py
 aws s3 cp "$SCRIPT_URL" /tmp/glue_script.py
 head -50 /tmp/glue_script.py
 ```
 
-**Check the script for:**
-- DynamoDB table name matches `inquiry-dev`
-- S3 output path is correct
-- Data transformations are valid
-- Error handling is present
+**スクリプトで確認すべき点:**
+- DynamoDB テーブル名が `inquiry-dev` と一致しているか
+- S3 出力パスが正しいか
+- データ変換が有効か
+- エラーハンドリングが存在するか
 
-### Step 5: Simulate the Job Locally (Optional)
+### ステップ 5: ジョブをローカルでシミュレーション（オプション）
 
-If you have access to development environment:
+開発環境にアクセスできる場合:
 
 ```bash
-# Install Glue libraries locally
+# Glue ライブラリをローカルにインストール
 pip install aws-glue-libs pyspark==3.1.1
 
-# Run the script with test data
+# テストデータでスクリプトを実行
 python /tmp/glue_script.py --JOB_NAME inquiry-export-dev --TempDir /tmp/glue
 ```
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と修正方法
 
-### 1. DynamoDB Read Timeout or Throttling
+### 1. DynamoDB 読み取りタイムアウトまたはスロットリング
 
-**Symptoms:**
-- Error: `DynamoDBReadTimeoutException` or `ProvisionedThroughputExceededException`
-- Job times out during the read phase
-- Occurs especially if table has grown large
+**症状:**
+- エラー: `DynamoDBReadTimeoutException` または `ProvisionedThroughputExceededException`
+- 読み取りフェーズでジョブがタイムアウト
+- テーブルが大きくなった場合に特に発生
 
-**Investigation:**
+**調査:**
 ```bash
-# Check table item count and size
+# テーブルのアイテム数とサイズを確認
 aws dynamodb describe-table \
   --table-name inquiry-dev \
   --query 'Table.[ItemCount,TableSizeBytes]'
 
-# Check for throttled reads
+# スロットリングされた読み取りを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name ConsumedReadCapacityUnits \
@@ -221,66 +221,66 @@ aws cloudwatch get-metric-statistics \
   --statistics Maximum
 ```
 
-**Fix:**
-1. **Temporarily increase DynamoDB read capacity:**
+**修正:**
+1. **DynamoDB 読み取りキャパシティを一時的に増加:**
    ```bash
    aws dynamodb update-table \
      --table-name inquiry-dev \
      --provisioned-throughput ReadCapacityUnits=100,WriteCapacityUnits=10
    ```
-   (Restore to normal after job completes)
+   （ジョブ完了後に通常に戻す）
 
-2. **Or, switch to on-demand billing temporarily:**
+2. **または、一時的にオンデマンド課金に切り替え:**
    ```bash
    aws dynamodb update-table \
      --table-name inquiry-dev \
      --billing-mode PAY_PER_REQUEST
 
-   # Later, switch back to provisioned
+   # 後でプロビジョンドに戻す
    aws dynamodb update-table \
      --table-name inquiry-dev \
      --billing-mode PROVISIONED \
      --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
    ```
 
-3. **Optimize the Glue job to reduce read load:**
-   - Add filter conditions to scan only recent inquiries
-   - Implement pagination/windowing instead of full table scan
+3. **Glue ジョブを最適化して読み取り負荷を削減:**
+   - 最近の問い合わせのみスキャンするフィルター条件を追加
+   - フルテーブルスキャンの代わりにページネーション/ウィンドウ処理を実装
 
-### 2. S3 Write Permission Error
+### 2. S3 書き込み権限エラー
 
-**Symptoms:**
-- Error: `S3.ClientError` or `AccessDenied` when writing to S3
-- Error message mentions S3 bucket or key
-- Job fails during the write phase
+**症状:**
+- エラー: `S3.ClientError` または S3 への書き込み時に `AccessDenied`
+- エラーメッセージに S3 バケットまたはキーが記載
+- 書き込みフェーズでジョブが失敗
 
-**Investigation:**
+**調査:**
 ```bash
-# Get the target S3 bucket from job parameters
+# ジョブパラメータからターゲット S3 バケットを取得
 TARGET_BUCKET=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.DefaultArguments."--target_bucket"' --output text)
 
-# Check bucket exists
+# バケットが存在するか確認
 aws s3api head-bucket --bucket "$TARGET_BUCKET"
 
-# Check if Glue role can write to bucket
+# Glue ロールがバケットに書き込めるか確認
 ROLE_ARN=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.Role' --output text)
 
-# Get the inline policy for the role
+# ロールのインラインポリシーを取得
 aws iam list-role-policies \
-  --role-name "${ROLE_ARN##*/}"  # Extract role name from ARN
+  --role-name "${ROLE_ARN##*/}"  # ARN からロール名を抽出
 ```
 
-**Fix:**
-1. **Verify bucket exists and is accessible:**
+**修正:**
+1. **バケットが存在しアクセス可能か確認:**
    ```bash
    aws s3 ls s3://<BUCKET>/inquiry-data/export/
    ```
 
-2. **Check and update the IAM role policy:**
+2. **IAM ロールポリシーを確認・更新:**
    ```json
    {
      "Version": "2012-10-17",
@@ -303,7 +303,7 @@ aws iam list-role-policies \
    }
    ```
 
-3. **Update the role with proper policy:**
+3. **適切なポリシーでロールを更新:**
    ```bash
    aws iam put-role-policy \
      --role-name <GLUE_JOB_ROLE> \
@@ -311,157 +311,157 @@ aws iam list-role-policies \
      --policy-document file:///tmp/s3_policy.json
    ```
 
-### 3. Glue Script Python Error
+### 3. Glue スクリプトの Python エラー
 
-**Symptoms:**
-- Error: `PythonException`, `SyntaxError`, or `ImportError` in logs
-- Specific line number mentioned in error message
-- Job fails during script execution phase
+**症状:**
+- エラー: ログに `PythonException`、`SyntaxError`、または `ImportError`
+- エラーメッセージに特定の行番号が記載
+- スクリプト実行フェーズでジョブが失敗
 
-**Investigation:**
+**調査:**
 ```bash
-# Download and review the script
+# スクリプトをダウンロードしてレビュー
 SCRIPT_URL=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.Command.ScriptLocation' --output text)
 
 aws s3 cp "$SCRIPT_URL" /tmp/glue_script.py
 
-# Check for syntax errors
+# 構文エラーをチェック
 python -m py_compile /tmp/glue_script.py
 
-# View the script around the error line
-# (error message will indicate line number)
+# エラー行周辺のスクリプトを確認
+# （エラーメッセージに行番号が示されます）
 grep -n "def\|import\|return" /tmp/glue_script.py | head -20
 ```
 
-**Fix:**
-1. **Update the script and re-upload to S3:**
+**修正:**
+1. **スクリプトを更新して S3 に再アップロード:**
    ```bash
-   # Edit the script
+   # スクリプトを編集
    vim /tmp/glue_script.py
 
-   # Validate syntax
+   # 構文をバリデーション
    python -m py_compile /tmp/glue_script.py
 
-   # Upload to S3
+   # S3 にアップロード
    aws s3 cp /tmp/glue_script.py "s3://bucket/path/glue_script.py"
    ```
 
-2. **Trigger a new job run:**
+2. **新しいジョブ実行をトリガー:**
    ```bash
    aws glue start-job-run \
      --job-name inquiry-export-dev
    ```
 
-### 4. Job Timeout
+### 4. ジョブタイムアウト
 
-**Symptoms:**
-- Error: `Job timed out after X minutes`
-- Job state shows `TIMEOUT` instead of `FAILED`
-- Job was running for the entire timeout duration
+**症状:**
+- エラー: `Job timed out after X minutes`
+- ジョブステートが `FAILED` ではなく `TIMEOUT` と表示
+- ジョブがタイムアウト期間全体にわたって実行されていた
 
-**Investigation:**
+**調査:**
 ```bash
-# Check current timeout setting
+# 現在のタイムアウト設定を確認
 TIMEOUT=$(aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.Timeout')
 
-echo "Current timeout: $TIMEOUT minutes"
+echo "現在のタイムアウト: $TIMEOUT 分"
 
-# Check job execution time for recent runs
+# 最近の実行のジョブ実行時間を確認
 aws glue get-job-runs \
   --job-name inquiry-export-dev \
   --max-results 10 \
   --query 'JobRuns[*].[StartedOn,CompletedOn,ExecutionTime]'
 ```
 
-**Fix:**
-1. **Increase timeout:**
+**修正:**
+1. **タイムアウトを延長:**
    ```bash
    aws glue update-job \
      --name inquiry-export-dev \
-     --job-update Timeout=480  # Increase to 8 hours
+     --job-update Timeout=480  # 8時間に延長
    ```
 
-2. **Optimize script to reduce execution time:**
-   - Add filtering to reduce data volume
-   - Implement partitioning
-   - Add parallel processing
+2. **スクリプトを最適化して実行時間を短縮:**
+   - フィルタリングを追加してデータ量を削減
+   - パーティショニングを実装
+   - 並列処理を追加
 
-### 5. Insufficient Resources (Out of Memory)
+### 5. リソース不足（メモリ不足）
 
-**Symptoms:**
-- Error: `OutOfMemory`, `java.lang.OutOfMemoryError`
-- Error mentions "heap space" or "memory"
-- Job has heavy data transformation logic
+**症状:**
+- エラー: `OutOfMemory`、`java.lang.OutOfMemoryError`
+- エラーメッセージに「heap space」や「memory」と記載
+- ジョブに重いデータ変換ロジックがある
 
-**Investigation:**
+**調査:**
 ```bash
-# Check current job capacity settings
+# 現在のジョブキャパシティ設定を確認
 aws glue get-job \
   --name inquiry-export-dev \
   --query 'Job.[MaxCapacity,WorkerType,NumberOfWorkers]'
 
-# Check memory usage in logs
+# ログでメモリ使用量を確認
 aws logs filter-log-events \
   --log-group-name /aws-glue/jobs \
   --filter-pattern "inquiry-export-dev" \
   --query 'events[?contains(message, `Memory`)].[message]'
 ```
 
-**Fix:**
-1. **Increase DPU allocation:**
+**修正:**
+1. **DPU 割り当てを増加:**
    ```bash
-   # Current: likely 2 DPU or G.1X worker type
-   # Increase to higher capacity
+   # 現在: おそらく 2 DPU または G.1X ワーカータイプ
+   # より高いキャパシティに増加
 
    aws glue update-job \
      --name inquiry-export-dev \
-     --job-update MaxCapacity=10  # Increase DPUs
+     --job-update MaxCapacity=10  # DPU を増加
    ```
 
-   Or use worker type:
+   またはワーカータイプを使用:
    ```bash
    aws glue update-job \
      --name inquiry-export-dev \
      --job-update "WorkerType=G.2X,NumberOfWorkers=3"
    ```
 
-2. **Optimize data processing in script:**
-   - Use `df.cache()` strategically
-   - Avoid collecting large dataframes to driver
-   - Use streaming/windowing for large datasets
+2. **スクリプトでデータ処理を最適化:**
+   - 戦略的に `df.cache()` を使用
+   - 大きな dataframe をドライバーに collect しない
+   - 大規模データセットにはストリーミング/ウィンドウ処理を使用
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Manual Job Retry
+### オプション 1: 手動でジョブを再試行
 
 ```bash
-# Trigger a new run of the failed job
+# 失敗したジョブの新しい実行をトリガー
 aws glue start-job-run \
   --job-name inquiry-export-dev
 
-# Optionally pass parameters
+# オプションでパラメータを渡す
 aws glue start-job-run \
   --job-name inquiry-export-dev \
   --job-arguments '{"--override_param":"value"}'
 
-# Monitor the new run
+# 新しい実行を監視
 aws glue get-job-run \
   --job-name inquiry-export-dev \
   --run-id "<returned-run-id>" \
   --query 'JobRun.[State,Progress,ErrorMessage]'
 ```
 
-### Option 2: Schedule-Based Retry
+### オプション 2: スケジュールベースの再試行
 
 ```bash
-# If the job is on a schedule (EventBridge), wait for next scheduled run
-# Or manually trigger via EventBridge
+# ジョブがスケジュール（EventBridge）上にある場合、次のスケジュール実行を待つ
+# または EventBridge 経由で手動でトリガー
 
 aws events put-events \
   --entries '[{
@@ -472,40 +472,40 @@ aws events put-events \
   }]'
 ```
 
-### Option 3: Fix and Redeploy
+### オプション 3: 修正して再デプロイ
 
 ```bash
-# 1. Identify the issue (from investigation steps above)
-# 2. Fix the issue (update script, increase capacity, etc.)
-# 3. Deploy changes
+# 1. 問題を特定（上記の調査手順から）
+# 2. 問題を修正（スクリプト更新、キャパシティ増加など）
+# 3. 変更をデプロイ
 aws glue update-job \
   --name inquiry-export-dev \
-  --job-update Timeout=480  # Example: increase timeout
+  --job-update Timeout=480  # 例: タイムアウトを延長
 
-# 4. Trigger new run
+# 4. 新しい実行をトリガー
 aws glue start-job-run --job-name inquiry-export-dev
 ```
 
 ---
 
-## Data Integrity Verification
+## データ整合性の検証
 
-After the job successfully completes, verify the data export:
+ジョブが正常に完了した後、データエクスポートを検証:
 
-### Step 1: Check S3 Output Files
+### ステップ 1: S3 出力ファイルを確認
 
 ```bash
-# List exported files
+# エクスポートされたファイルをリスト
 aws s3 ls s3://<ANALYTICS_BUCKET>/inquiry-data/export/ --recursive
 
-# Check file sizes (should be reasonably large if data exists)
+# ファイルサイズを確認（データが存在すれば適度なサイズになるはず）
 aws s3 ls s3://<ANALYTICS_BUCKET>/inquiry-data/export/ --summarize
 ```
 
-### Step 2: Verify Data with Athena
+### ステップ 2: Athena でデータを検証
 
 ```bash
-# Run an Athena query on the exported data
+# エクスポートされたデータに対して Athena クエリを実行
 QUERY="SELECT COUNT(*) as total_records, MAX(created_at) as latest FROM inquiry_analytics.inquiry_table WHERE DATE(created_at) = CURRENT_DATE"
 
 aws athena start-query-execution \
@@ -513,48 +513,48 @@ aws athena start-query-execution \
   --query-execution-context Database=inquiry_analytics \
   --result-configuration OutputLocation=s3://<QUERY_RESULTS_BUCKET>/
 
-# Get results
+# 結果を取得
 aws athena get-query-execution --query-execution-id <EXECUTION_ID>
 ```
 
-### Step 3: Compare with DynamoDB
+### ステップ 3: DynamoDB と比較
 
 ```bash
-# Count records in DynamoDB
+# DynamoDB のレコード数をカウント
 aws dynamodb scan \
   --table-name inquiry-dev \
   --select COUNT_ONLY \
   --query 'Count'
 
-# Should match the Athena count from Step 2
+# ステップ 2 の Athena カウントと一致するはず
 ```
 
-If record counts don't match, investigate what data was filtered or lost during the export.
+レコード数が一致しない場合、エクスポート中にどのデータがフィルタリングまたは失われたか調査してください。
 
 ---
 
-## Post-Incident Checklist
+## インシデント後のチェックリスト
 
-After resolving the Glue job failure:
+Glue ジョブの障害を解決した後:
 
-- [ ] **Root Cause Documented**: Record what caused the failure
-- [ ] **Data Completeness Verified**: Check that all expected data was exported
-- [ ] **Job Monitoring Improved**: Are there additional CloudWatch metrics to track?
-- [ ] **Runbook Updated**: Does this runbook need updates based on what you learned?
-- [ ] **Preventive Measures**: Can we prevent this in the future?
-  - [ ] Increase default job capacity?
-  - [ ] Reduce data volume by adding filters?
-  - [ ] Improve error handling in script?
-  - [ ] Add alerts for job duration nearing timeout?
+- [ ] **根本原因を文書化**: 障害の原因を記録
+- [ ] **データの完全性を検証**: 期待される全データがエクスポートされたか確認
+- [ ] **ジョブモニタリングを改善**: 追跡すべき CloudWatch メトリクスはあるか？
+- [ ] **ランブックを更新**: 学んだことに基づいてこのランブックを更新する必要があるか？
+- [ ] **再発防止策**: 今後これを防ぐことができるか？
+  - [ ] デフォルトのジョブキャパシティを増加？
+  - [ ] フィルターを追加してデータ量を削減？
+  - [ ] スクリプトのエラーハンドリングを改善？
+  - [ ] ジョブ実行時間がタイムアウトに近づいたらアラートを追加？
 
 ---
 
-## Monitoring and Alerts
+## モニタリングとアラート
 
-### Monitor Glue Job Runs
+### Glue ジョブ実行を監視
 
 ```bash
-# Show success/failure trend
+# 成功/失敗のトレンドを表示
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Glue \
   --metric-name glue.driver.aggregate.numFailedTasks \
@@ -563,7 +563,7 @@ aws cloudwatch get-metric-statistics \
   --period 86400 \
   --statistics Sum
 
-# Monitor job execution time
+# ジョブ実行時間を監視
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Glue \
   --metric-name glue.driver.aggregate.numCompletedTasks \
@@ -573,24 +573,24 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### Related Alarms
+### 関連アラーム
 
-- No other PF2 alarms directly depend on this job's success
-- But analytical dashboards rely on this data for insights
-
----
-
-## References
-
-- [AWS Glue Documentation](https://docs.aws.amazon.com/glue/)
-- [Glue Job Monitoring](https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html)
-- [Glue Job Troubleshooting](https://docs.aws.amazon.com/glue/latest/dg/troubleshooting-glue.html)
-- [DynamoDB Documentation](https://docs.aws.amazon.com/dynamodb/)
-- [Glue Jobs Console](https://console.aws.amazon.com/glue/home?region=ap-northeast-1#etl:tab=jobs)
-- [Design Document](../../plans/2025-12-29-pf14-monitoring-design.md)
+- このジョブの成功に直接依存する他の PF2 アラームはありません
+- ただし、分析ダッシュボードはこのデータに依存してインサイトを提供しています
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+## 参考資料
+
+- [AWS Glue ドキュメント](https://docs.aws.amazon.com/glue/)
+- [Glue ジョブモニタリング](https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html)
+- [Glue ジョブトラブルシューティング](https://docs.aws.amazon.com/glue/latest/dg/troubleshooting-glue.html)
+- [DynamoDB ドキュメント](https://docs.aws.amazon.com/dynamodb/)
+- [Glue ジョブコンソール](https://console.aws.amazon.com/glue/home?region=ap-northeast-1#etl:tab=jobs)
+- [設計ドキュメント](../../plans/2025-12-29-pf14-monitoring-design.md)
+
+---
+
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと

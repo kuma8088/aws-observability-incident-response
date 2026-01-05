@@ -1,45 +1,45 @@
-# DynamoDB Throttling Runbook
+# DynamoDB スロットリング ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf1-dynamodb-<table>-throttles` |
-| **Severity** | Critical |
-| **Service** | Amazon DynamoDB |
-| **Metric** | ThrottledRequests > 0 or SystemErrors > 0 |
-| **Threshold** | Zero tolerance (any throttle triggers alert) |
-| **Slack Channel** | #alerts-critical |
-| **Tables** | meals, users (primary tables) |
-
----
-
-## What This Alert Means
-
-This alert triggers when DynamoDB tables experience throttled requests or system errors. Throttling occurs when read/write capacity is exceeded, while system errors indicate AWS-side issues.
-
-**Impact:**
-- API requests may fail or return errors
-- Data operations (meal logging, user updates) may be delayed or fail
-- Application may experience degraded performance
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf1-dynamodb-<table>-throttles` |
+| **重要度** | Critical |
+| **サービス** | Amazon DynamoDB |
+| **メトリクス** | ThrottledRequests > 0 または SystemErrors > 0 |
+| **閾値** | ゼロトレランス（いかなるスロットルもアラートをトリガー） |
+| **Slack チャンネル** | #alerts-critical |
+| **対象テーブル** | meals, users（プライマリテーブル） |
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## このアラートの意味
 
-### 1. Check DynamoDB Console
+このアラートは、DynamoDB テーブルでスロットリングリクエストまたはシステムエラーが発生した場合にトリガーされます。スロットリングは読み取り/書き込み容量を超過した場合に発生し、システムエラーは AWS 側の問題を示します。
 
-Navigate to: [DynamoDB Tables](https://console.aws.amazon.com/dynamodb/home?region=ap-northeast-1#tables:)
+**影響:**
+- API リクエストが失敗またはエラーを返す可能性
+- データ操作（食事記録、ユーザー更新）が遅延または失敗する可能性
+- アプリケーションのパフォーマンスが低下する可能性
 
-Select affected table and check:
-- **Metrics** tab for read/write capacity consumption
-- **Capacity** tab for provisioned vs. consumed units
-- **Alarms** tab for active CloudWatch alarms
+---
 
-### 2. Check Throttle Metrics
+## 即時対応（0-5分）
+
+### 1. DynamoDB コンソールを確認
+
+アクセス先: [DynamoDB Tables](https://console.aws.amazon.com/dynamodb/home?region=ap-northeast-1#tables:)
+
+影響を受けたテーブルを選択し確認:
+- **Metrics** タブで読み取り/書き込み容量の消費
+- **Capacity** タブでプロビジョニング済み vs 消費済みユニット
+- **Alarms** タブでアクティブな CloudWatch アラーム
+
+### 2. スロットルメトリクスを確認
 
 ```bash
-# Check throttled requests for meals table
+# meals テーブルのスロットリングリクエストを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name ThrottledRequests \
@@ -49,7 +49,7 @@ aws cloudwatch get-metric-statistics \
   --period 60 \
   --statistics Sum
 
-# Check system errors
+# システムエラーを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name SystemErrors \
@@ -60,20 +60,20 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### 3. Check Table Status
+### 3. テーブルステータスを確認
 
 ```bash
-# Get table details
+# テーブル詳細を取得
 aws dynamodb describe-table \
   --table-name mealmgtsystem-dev-meals \
   --query 'Table.[TableStatus,BillingModeSummary,ProvisionedThroughput]'
 ```
 
-### 4. Check Application Logs
+### 4. アプリケーションログを確認
 
-Navigate to: [CloudWatch Logs Insights](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
+アクセス先: [CloudWatch Logs Insights](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
 
-Query:
+クエリ:
 ```sql
 fields @timestamp, @message
 | filter @message like /ThrottlingException|ProvisionedThroughputExceededException/
@@ -83,11 +83,11 @@ fields @timestamp, @message
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Identify Throttle Type
+### ステップ 1: スロットルタイプの特定
 
-**Read Throttling:**
+**読み取りスロットリング:**
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
@@ -99,7 +99,7 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Write Throttling:**
+**書き込みスロットリング:**
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
@@ -111,10 +111,10 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### Step 2: Check Consumed Capacity
+### ステップ 2: 消費容量を確認
 
 ```bash
-# Check consumed read capacity
+# 消費済み読み取り容量を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name ConsumedReadCapacityUnits \
@@ -125,19 +125,19 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum,Average,Maximum
 ```
 
-### Step 3: Identify Hot Partitions
+### ステップ 3: ホットパーティションの特定
 
-If you have GSIs, check their metrics:
+GSI がある場合、そのメトリクスを確認:
 ```bash
-# List table GSIs
+# テーブルの GSI をリスト
 aws dynamodb describe-table \
   --table-name mealmgtsystem-dev-meals \
   --query 'Table.GlobalSecondaryIndexes[*].IndexName'
 ```
 
-### Step 4: Check for Burst Traffic
+### ステップ 4: バーストトラフィックの確認
 
-Look for traffic patterns in Lambda invocations:
+Lambda 呼び出しでトラフィックパターンを確認:
 ```bash
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
@@ -151,138 +151,138 @@ aws cloudwatch get-metric-statistics \
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と対処法
 
-### 1. Provisioned Capacity Exceeded
+### 1. プロビジョニング済み容量の超過
 
-**Symptoms:**
-- `ProvisionedThroughputExceededException` in logs
-- Consumed capacity consistently near provisioned limit
-- Throttling during peak hours
+**症状:**
+- ログに `ProvisionedThroughputExceededException`
+- 消費容量がプロビジョニング済み制限に常に近い
+- ピーク時間帯にスロットリング
 
-**Investigation:**
+**調査:**
 ```bash
-# Compare consumed vs provisioned
+# 消費済み vs プロビジョニング済みを比較
 aws dynamodb describe-table \
   --table-name mealmgtsystem-dev-meals \
   --query 'Table.ProvisionedThroughput'
 ```
 
-**Fix (Immediate):**
+**対処法（即時）:**
 ```bash
-# Increase provisioned capacity
+# プロビジョニング済み容量を増加
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --provisioned-throughput ReadCapacityUnits=10,WriteCapacityUnits=10
 ```
 
-**Fix (Long-term):**
-Switch to on-demand billing:
+**対処法（長期）:**
+オンデマンド課金に切り替え:
 ```bash
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --billing-mode PAY_PER_REQUEST
 ```
 
-### 2. Hot Partition
+### 2. ホットパーティション
 
-**Symptoms:**
-- Throttling on specific items or partition keys
-- High traffic to limited key range
-- GSI throttling
+**症状:**
+- 特定のアイテムまたはパーティションキーでスロットリング
+- 限られたキー範囲への高トラフィック
+- GSI のスロットリング
 
-**Investigation:**
-Check CloudWatch Contributor Insights (if enabled):
+**調査:**
+CloudWatch Contributor Insights を確認（有効な場合）:
 ```bash
 aws dynamodb describe-contributor-insights \
   --table-name mealmgtsystem-dev-meals
 ```
 
-**Fix:**
-1. Redesign partition key for better distribution
-2. Add randomness to partition keys (write sharding)
-3. Use DynamoDB Accelerator (DAX) for read-heavy patterns
+**対処法:**
+1. より良い分散のためにパーティションキーを再設計
+2. パーティションキーにランダム性を追加（書き込みシャーディング）
+3. 読み取り負荷の高いパターンには DynamoDB Accelerator (DAX) を使用
 
-### 3. Burst Capacity Exhausted
+### 3. バースト容量の枯渇
 
-**Symptoms:**
-- Throttling after sustained high traffic
-- Works initially then fails
-- DynamoDB burst credits depleted
+**症状:**
+- 持続的な高トラフィック後にスロットリング
+- 最初は動作するが、その後失敗
+- DynamoDB バーストクレジットが枯渇
 
-**Investigation:**
-DynamoDB accumulates unused capacity for bursts (up to 5 minutes worth). Check if burst credits are exhausted.
+**調査:**
+DynamoDB は最大5分間分の未使用容量をバースト用に蓄積します。バーストクレジットが枯渇しているか確認。
 
-**Fix:**
-1. Smooth out traffic patterns
-2. Implement request queuing with SQS
-3. Add client-side retry with exponential backoff
+**対処法:**
+1. トラフィックパターンを平滑化
+2. SQS でリクエストキューイングを実装
+3. 指数バックオフ付きのクライアントサイドリトライを追加
 
-### 4. GSI Throttling
+### 4. GSI スロットリング
 
-**Symptoms:**
-- Main table OK but queries on GSI throttle
-- GSI has separate capacity from main table
+**症状:**
+- メインテーブルは OK だが GSI のクエリがスロットル
+- GSI はメインテーブルとは別の容量を持つ
 
-**Investigation:**
+**調査:**
 ```bash
-# Check GSI capacity
+# GSI 容量を確認
 aws dynamodb describe-table \
   --table-name mealmgtsystem-dev-meals \
   --query 'Table.GlobalSecondaryIndexes[*].[IndexName,ProvisionedThroughput]'
 ```
 
-**Fix:**
+**対処法:**
 ```bash
-# Update GSI capacity
+# GSI 容量を更新
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --global-secondary-index-updates \
     '[{"Update":{"IndexName":"GSI1","ProvisionedThroughput":{"ReadCapacityUnits":10,"WriteCapacityUnits":10}}}]'
 ```
 
-### 5. System Errors (AWS-side)
+### 5. システムエラー（AWS 側）
 
-**Symptoms:**
-- `InternalServerError` from DynamoDB
-- SystemErrors metric > 0
-- No capacity issues visible
+**症状:**
+- DynamoDB からの `InternalServerError`
+- SystemErrors メトリクス > 0
+- 容量の問題は見られない
 
-**Fix:**
-1. Check AWS Service Health Dashboard
-2. Implement retry logic in application
-3. Wait for AWS to resolve (usually transient)
+**対処法:**
+1. AWS Service Health Dashboard を確認
+2. アプリケーションにリトライロジックを実装
+3. AWS の解決を待つ（通常は一時的）
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Increase Capacity (Immediate)
+### オプション 1: 容量の増加（即時）
 
 ```bash
-# Double the capacity
+# 容量を2倍に
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --provisioned-throughput ReadCapacityUnits=20,WriteCapacityUnits=20
 ```
 
-Note: Capacity decreases are limited to 4 per day.
+注意: 容量削減は1日4回に制限されています。
 
-### Option 2: Switch to On-Demand
+### オプション 2: オンデマンドに切り替え
 
 ```bash
-# Switch to pay-per-request (unlimited scaling)
+# 従量課金に切り替え（無制限スケーリング）
 aws dynamodb update-table \
   --table-name mealmgtsystem-dev-meals \
   --billing-mode PAY_PER_REQUEST
 ```
 
-Note: Cannot switch back to provisioned for 24 hours.
+注意: 24時間はプロビジョニングに戻せません。
 
-### Option 3: Enable Auto Scaling
+### オプション 3: オートスケーリングを有効化
 
 ```bash
-# Register scalable target
+# スケーラブルターゲットを登録
 aws application-autoscaling register-scalable-target \
   --service-namespace dynamodb \
   --resource-id "table/mealmgtsystem-dev-meals" \
@@ -290,7 +290,7 @@ aws application-autoscaling register-scalable-target \
   --min-capacity 5 \
   --max-capacity 100
 
-# Create scaling policy
+# スケーリングポリシーを作成
 aws application-autoscaling put-scaling-policy \
   --service-namespace dynamodb \
   --resource-id "table/mealmgtsystem-dev-meals" \
@@ -307,34 +307,34 @@ aws application-autoscaling put-scaling-policy \
 
 ---
 
-## Post-Incident
+## インシデント後の対応
 
-After the alert is resolved:
+アラートが解決した後:
 
-- [ ] **Document Root Cause**: Record traffic pattern that caused throttling
-- [ ] **Review Capacity Planning**: Adjust baseline capacity if needed
-- [ ] **Enable Auto Scaling**: If not already enabled
-- [ ] **Review Access Patterns**: Optimize queries to reduce capacity consumption
-- [ ] **Monitor for Recurrence**: Set up CloudWatch dashboard for capacity trends
+- [ ] **根本原因の文書化**: スロットリングを引き起こしたトラフィックパターンを記録
+- [ ] **容量計画の見直し**: 必要に応じてベースライン容量を調整
+- [ ] **オートスケーリングの有効化**: まだ有効でない場合は有効化
+- [ ] **アクセスパターンの見直し**: クエリを最適化して容量消費を削減
+- [ ] **再発監視**: 容量トレンドの CloudWatch ダッシュボードを設定
 
 ---
 
-## Dashboard and Monitoring
+## ダッシュボードと監視
 
-### Real-time Monitoring
+### リアルタイム監視
 
 - [CloudWatch Dashboard - PF1](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF1-Dashboard)
 - [DynamoDB Table Metrics](https://console.aws.amazon.com/dynamodb/home?region=ap-northeast-1#table?name=mealmgtsystem-dev-meals&tab=metrics)
 
-### Related Alarms
+### 関連アラーム
 
-- `pf1-dynamodb-<table>-system-errors`: System errors alert
-- `pf1-lambda-<function>-error-rate`: Lambda errors (may indicate DynamoDB issues)
-- `pf1-apigw-5xx-errors`: API Gateway 5xx (downstream effect)
+- `pf1-dynamodb-<table>-system-errors`: システムエラーアラート
+- `pf1-lambda-<function>-error-rate`: Lambda エラー（DynamoDB の問題を示す可能性）
+- `pf1-apigw-5xx-errors`: API Gateway 5xx（ダウンストリームへの影響）
 
 ---
 
-## References
+## 参考資料
 
 - [DynamoDB Throughput Capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadWriteCapacityMode.html)
 - [DynamoDB Auto Scaling](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/AutoScaling.html)
@@ -343,6 +343,6 @@ After the alert is resolved:
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと

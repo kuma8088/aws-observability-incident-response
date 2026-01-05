@@ -1,46 +1,46 @@
-# Bedrock API Errors Runbook
+# Bedrock API エラー ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf1-bedrock-client-error-rate` / `pf1-bedrock-server-error` |
-| **Severity** | Critical |
-| **Service** | Amazon Bedrock |
-| **Metric** | InvocationClientErrors > 5% / InvocationServerErrors > 0 |
-| **Threshold** | Client errors > 5% over 10 min / Any server error |
-| **Slack Channel** | #alerts-critical |
-| **Model** | Claude 3 (anthropic.claude-3-5-sonnet-*) |
-
----
-
-## What This Alert Means
-
-This alert triggers when Bedrock API calls experience elevated error rates:
-- **Client Errors (4xx)**: Invalid requests, quota exceeded, throttling
-- **Server Errors (5xx)**: AWS-side issues, model unavailable
-
-**Impact:**
-- AI-powered features (food analysis, nutrition advice) unavailable
-- User experience degraded for intelligent features
-- Meals may be logged without AI-generated insights
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf1-bedrock-client-error-rate` / `pf1-bedrock-server-error` |
+| **重要度** | Critical |
+| **サービス** | Amazon Bedrock |
+| **メトリクス** | InvocationClientErrors > 5% / InvocationServerErrors > 0 |
+| **閾値** | クライアントエラー > 5%（10分間） / サーバーエラー発生 |
+| **Slack チャンネル** | #alerts-critical |
+| **モデル** | Claude 3 (anthropic.claude-3-5-sonnet-*) |
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## このアラートの意味
 
-### 1. Check Bedrock Console
+このアラートは、Bedrock API 呼び出しでエラーレートが上昇した場合にトリガーされます:
+- **クライアントエラー (4xx)**: 無効なリクエスト、クォータ超過、スロットリング
+- **サーバーエラー (5xx)**: AWS 側の問題、モデル利用不可
 
-Navigate to: [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/home?region=ap-northeast-1)
+**影響:**
+- AI 機能（食品分析、栄養アドバイス）が利用不可
+- インテリジェント機能のユーザー体験が低下
+- AI 生成のインサイトなしで食事が記録される可能性
 
-Check:
-- **Model access**: Verify Claude 3 model access is enabled
-- **Quotas**: Check service quotas for invoke limits
+---
 
-### 2. Check CloudWatch Metrics
+## 即時対応（0-5分）
+
+### 1. Bedrock コンソールを確認
+
+アクセス先: [Amazon Bedrock Console](https://console.aws.amazon.com/bedrock/home?region=ap-northeast-1)
+
+確認事項:
+- **Model access**: Claude 3 モデルへのアクセスが有効か確認
+- **Quotas**: invoke 制限のサービスクォータを確認
+
+### 2. CloudWatch メトリクスを確認
 
 ```bash
-# Check client errors (4xx)
+# クライアントエラー (4xx) を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationClientErrors \
@@ -49,7 +49,7 @@ aws cloudwatch get-metric-statistics \
   --period 300 \
   --statistics Sum
 
-# Check server errors (5xx)
+# サーバーエラー (5xx) を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationServerErrors \
@@ -58,7 +58,7 @@ aws cloudwatch get-metric-statistics \
   --period 300 \
   --statistics Sum
 
-# Check throttling
+# スロットリングを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationThrottles \
@@ -68,11 +68,11 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### 3. Check Lambda Logs for Bedrock Calls
+### 3. Bedrock 呼び出しの Lambda ログを確認
 
-Navigate to: [CloudWatch Logs Insights](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
+アクセス先: [CloudWatch Logs Insights](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
 
-Query:
+クエリ:
 ```sql
 fields @timestamp, @message
 | filter @message like /bedrock|Bedrock|ThrottlingException|ModelTimeoutException|ValidationException/
@@ -80,20 +80,20 @@ fields @timestamp, @message
 | limit 50
 ```
 
-### 4. Check AWS Service Health
+### 4. AWS Service Health を確認
 
-Navigate to: [AWS Service Health Dashboard](https://health.aws.amazon.com/health/status)
+アクセス先: [AWS Service Health Dashboard](https://health.aws.amazon.com/health/status)
 
-Filter by: Amazon Bedrock, ap-northeast-1
+フィルター: Amazon Bedrock, ap-northeast-1
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Identify Error Type
+### ステップ 1: エラータイプの特定
 
 ```bash
-# Get invocation count to calculate error rate
+# エラーレート計算のために呼び出し数を取得
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name Invocations \
@@ -103,44 +103,44 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### Step 2: Check Service Quotas
+### ステップ 2: サービスクォータを確認
 
 ```bash
-# List Bedrock service quotas
+# Bedrock サービスクォータをリスト
 aws service-quotas list-service-quotas \
   --service-code bedrock \
   --query 'Quotas[*].[QuotaName,Value,UsageMetric]'
 ```
 
-### Step 3: Check Model Availability
+### ステップ 3: モデルの可用性を確認
 
 ```bash
-# Check if model is available
+# モデルが利用可能か確認
 aws bedrock list-foundation-models \
   --region ap-northeast-1 \
   --query 'modelSummaries[?contains(modelId, `claude-3`)].[modelId,modelLifecycle.status]'
 ```
 
-### Step 4: Review X-Ray Traces
+### ステップ 4: X-Ray トレースを確認
 
-Navigate to: [X-Ray Traces](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
+アクセス先: [X-Ray Traces](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
 
-Filter: `annotation.bedrock = true AND fault = true`
+フィルター: `annotation.bedrock = true AND fault = true`
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と対処法
 
-### 1. Throttling (Rate Limit Exceeded)
+### 1. スロットリング（レート制限超過）
 
-**Symptoms:**
-- `ThrottlingException` in logs
-- InvocationThrottles metric > 0
-- Errors during high traffic periods
+**症状:**
+- ログに `ThrottlingException`
+- InvocationThrottles メトリクス > 0
+- 高トラフィック時にエラー
 
-**Investigation:**
+**調査:**
 ```bash
-# Check throttle count
+# スロットル数を確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationThrottles \
@@ -150,8 +150,8 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Fix (Immediate):**
-Implement retry with exponential backoff:
+**対処法（即時）:**
+指数バックオフ付きリトライを実装:
 ```python
 import time
 import random
@@ -172,21 +172,21 @@ def invoke_bedrock_with_retry(prompt, max_retries=5):
                 raise
 ```
 
-**Fix (Long-term):**
-1. Request quota increase via AWS Support
-2. Implement request queuing with SQS
-3. Add caching for repeated queries
+**対処法（長期）:**
+1. AWS サポートを通じてクォータ増加をリクエスト
+2. SQS でリクエストキューイングを実装
+3. 繰り返しのクエリにキャッシュを追加
 
-### 2. Model Timeout
+### 2. モデルタイムアウト
 
-**Symptoms:**
-- `ModelTimeoutException` in logs
-- Long latency before failure
-- Complex prompts or large context
+**症状:**
+- ログに `ModelTimeoutException`
+- 失敗前に長いレイテンシ
+- 複雑なプロンプトまたは大きなコンテキスト
 
-**Investigation:**
+**調査:**
 ```bash
-# Check invocation latency
+# 呼び出しレイテンシを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationLatency \
@@ -196,20 +196,20 @@ aws cloudwatch get-metric-statistics \
   --statistics Average,Maximum,p99
 ```
 
-**Fix:**
-1. Reduce prompt size or context length
-2. Simplify the request (fewer examples, shorter system prompt)
-3. Use a faster model variant if available
+**対処法:**
+1. プロンプトサイズまたはコンテキスト長を削減
+2. リクエストを簡略化（例を減らす、システムプロンプトを短縮）
+3. 利用可能な場合、より高速なモデルバリアントを使用
 
-### 3. Invalid Request (ValidationException)
+### 3. 無効なリクエスト (ValidationException)
 
-**Symptoms:**
-- `ValidationException` in logs
-- 400 status code
-- Specific request fails consistently
+**症状:**
+- ログに `ValidationException`
+- 400 ステータスコード
+- 特定のリクエストが一貫して失敗
 
-**Investigation:**
-Check Lambda logs for the exact error message:
+**調査:**
+正確なエラーメッセージを Lambda ログで確認:
 ```sql
 fields @timestamp, @message
 | filter @message like /ValidationException/
@@ -218,33 +218,33 @@ fields @timestamp, @message
 | limit 10
 ```
 
-**Fix:**
-1. Check prompt format matches model requirements
-2. Verify content policy compliance
-3. Check max_tokens is within limits
+**対処法:**
+1. プロンプト形式がモデル要件に一致しているか確認
+2. コンテンツポリシー準拠を確認
+3. max_tokens が制限内か確認
 
-### 4. Access Denied
+### 4. アクセス拒否
 
-**Symptoms:**
-- `AccessDeniedException` in logs
-- Model not enabled
-- IAM permission issue
+**症状:**
+- ログに `AccessDeniedException`
+- モデルが有効化されていない
+- IAM 権限の問題
 
-**Investigation:**
+**調査:**
 ```bash
-# Check Lambda execution role
+# Lambda 実行ロールを確認
 aws lambda get-function-configuration \
   --function-name mealmgtsystem-dev-api-handler \
   --query 'Role'
 
-# Check if bedrock:InvokeModel is allowed
+# bedrock:InvokeModel が許可されているか確認
 ```
 
-**Fix:**
-1. Enable model access in Bedrock console:
-   - Go to Model access
-   - Request access to Claude 3 models
-2. Add IAM permission:
+**対処法:**
+1. Bedrock コンソールでモデルアクセスを有効化:
+   - Model access に移動
+   - Claude 3 モデルへのアクセスをリクエスト
+2. IAM 権限を追加:
    ```json
    {
      "Effect": "Allow",
@@ -253,37 +253,37 @@ aws lambda get-function-configuration \
    }
    ```
 
-### 5. Service Unavailable (5xx)
+### 5. サービス利用不可 (5xx)
 
-**Symptoms:**
-- `ServiceUnavailableException` or `InternalServerError`
+**症状:**
+- `ServiceUnavailableException` または `InternalServerError`
 - InvocationServerErrors > 0
-- All requests failing
+- すべてのリクエストが失敗
 
-**Fix:**
-1. Check AWS Service Health Dashboard
-2. Implement graceful degradation:
-   - Return cached responses
-   - Skip AI features temporarily
-   - Queue requests for later processing
-3. Wait for AWS to resolve (usually transient)
+**対処法:**
+1. AWS Service Health Dashboard を確認
+2. グレースフルデグラデーションを実装:
+   - キャッシュされたレスポンスを返す
+   - AI 機能を一時的にスキップ
+   - 後で処理するためにリクエストをキュー
+3. AWS の解決を待つ（通常は一時的）
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Implement Graceful Degradation
+### オプション 1: グレースフルデグラデーションを実装
 
-Modify Lambda to handle Bedrock failures:
+Bedrock 障害を処理するように Lambda を修正:
 ```python
 def analyze_food(food_data):
     try:
-        # Try Bedrock analysis
+        # Bedrock 分析を試行
         response = invoke_bedrock(food_data)
         return response
     except Exception as e:
         logger.error(f"Bedrock failed: {e}")
-        # Return basic analysis without AI
+        # AI なしの基本分析を返す
         return {
             "status": "partial",
             "message": "AI analysis temporarily unavailable",
@@ -291,13 +291,13 @@ def analyze_food(food_data):
         }
 ```
 
-### Option 2: Switch to Backup Model
+### オプション 2: バックアップモデルに切り替え
 
-If primary model is unavailable:
+プライマリモデルが利用不可の場合:
 ```python
 MODELS = [
-    "anthropic.claude-3-5-sonnet-20241022-v2:0",  # Primary
-    "anthropic.claude-3-haiku-20240307-v1:0",      # Fallback (faster, cheaper)
+    "anthropic.claude-3-5-sonnet-20241022-v2:0",  # プライマリ
+    "anthropic.claude-3-haiku-20240307-v1:0",      # フォールバック（より高速、低コスト）
 ]
 
 def invoke_with_fallback(prompt):
@@ -309,43 +309,43 @@ def invoke_with_fallback(prompt):
     raise Exception("All models unavailable")
 ```
 
-### Option 3: Request Quota Increase
+### オプション 3: クォータ増加をリクエスト
 
-For throttling issues:
-1. Go to [Service Quotas Console](https://console.aws.amazon.com/servicequotas/)
-2. Select Amazon Bedrock
-3. Find "Tokens per minute" or "Requests per minute"
-4. Request increase
-
----
-
-## Post-Incident
-
-After the alert is resolved:
-
-- [ ] **Document Root Cause**: Record the specific error and cause
-- [ ] **Review Error Handling**: Improve retry logic and fallbacks
-- [ ] **Check Quota Usage**: Review if quotas need adjustment
-- [ ] **Optimize Prompts**: Reduce token usage if hitting limits
-- [ ] **Add Caching**: Cache common responses to reduce API calls
+スロットリングの問題の場合:
+1. [Service Quotas Console](https://console.aws.amazon.com/servicequotas/) に移動
+2. Amazon Bedrock を選択
+3. "Tokens per minute" または "Requests per minute" を見つける
+4. 増加をリクエスト
 
 ---
 
-## Dashboard and Monitoring
+## インシデント後の対応
 
-### Real-time Monitoring
+アラートが解決した後:
+
+- [ ] **根本原因の文書化**: 特定のエラーと原因を記録
+- [ ] **エラーハンドリングの見直し**: リトライロジックとフォールバックを改善
+- [ ] **クォータ使用量の確認**: クォータの調整が必要か確認
+- [ ] **プロンプトの最適化**: 制限に達している場合はトークン使用量を削減
+- [ ] **キャッシュの追加**: API 呼び出しを減らすために一般的なレスポンスをキャッシュ
+
+---
+
+## ダッシュボードと監視
+
+### リアルタイム監視
 
 - [CloudWatch Dashboard - PF1](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF1-Dashboard)
 - [Bedrock Console](https://console.aws.amazon.com/bedrock/home?region=ap-northeast-1)
 
-### Related Alarms
+### 関連アラーム
 
-- `pf1-bedrock-latency-high`: High latency warning
-- `pf1-lambda-<function>-error-rate`: Lambda errors (may indicate Bedrock issues)
+- `pf1-bedrock-latency-high`: 高レイテンシ警告
+- `pf1-lambda-<function>-error-rate`: Lambda エラー（Bedrock の問題を示す可能性）
 
 ---
 
-## References
+## 参考資料
 
 - [Amazon Bedrock Documentation](https://docs.aws.amazon.com/bedrock/)
 - [Bedrock Quotas](https://docs.aws.amazon.com/bedrock/latest/userguide/quotas.html)
@@ -354,6 +354,6 @@ After the alert is resolved:
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと

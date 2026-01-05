@@ -1,37 +1,37 @@
-# Lambda Error Rate Spike Runbook
+# Lambda エラーレート急増 ランブック
 
-## Alert Details
+## アラート詳細
 
-| Field | Value |
-|-------|-------|
-| **Alert Name** | `pf1-lambda-<function>-error-rate` |
-| **Severity** | Critical |
-| **Service** | AWS Lambda |
-| **Metric** | Error Rate > 5% |
-| **Threshold** | 5% error rate over 5 minutes |
-| **Slack Channel** | #alerts-critical |
-| **Functions** | api-handler, data-processor, auth-handler |
-
----
-
-## What This Alert Means
-
-This alert triggers when a Lambda function's error rate exceeds 5% over a 5-minute evaluation period. This indicates that the function is failing to process requests successfully, potentially impacting user experience or data integrity.
-
-**Impact:**
-- API requests may fail or timeout
-- Data processing may be incomplete
-- User operations (meal registration, food search, etc.) may be unavailable
+| 項目 | 値 |
+|------|-----|
+| **アラート名** | `pf1-lambda-<function>-error-rate` |
+| **重要度** | Critical |
+| **サービス** | AWS Lambda |
+| **メトリクス** | Error Rate > 5% |
+| **閾値** | 5分間でエラーレート5%超過 |
+| **Slack チャンネル** | #alerts-critical |
+| **対象関数** | api-handler, data-processor, auth-handler |
 
 ---
 
-## Immediate Actions (0-5 minutes)
+## このアラートの意味
 
-### 1. Access CloudWatch Logs
+このアラートは、Lambda 関数のエラーレートが5分間の評価期間で5%を超えた場合にトリガーされます。これは、関数がリクエストの処理に失敗しており、ユーザー体験やデータの整合性に影響を与える可能性があることを示しています。
 
-Navigate to: [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
+**影響:**
+- API リクエストが失敗またはタイムアウトする可能性
+- データ処理が不完全になる可能性
+- ユーザー操作（食事登録、食品検索など）が利用不可になる可能性
 
-Run this Logs Insights query:
+---
+
+## 即時対応（0-5分）
+
+### 1. CloudWatch Logs へアクセス
+
+アクセス先: [CloudWatch Logs](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#logsV2:logs-insights)
+
+以下の Logs Insights クエリを実行:
 ```sql
 fields @timestamp, @message, @logStream
 | filter @message like /ERROR|Exception|error/
@@ -39,15 +39,15 @@ fields @timestamp, @message, @logStream
 | limit 100
 ```
 
-Select log groups:
+対象ロググループ:
 - `/aws/lambda/mealmgtsystem-dev-api-handler`
 - `/aws/lambda/mealmgtsystem-dev-data-processor`
 - `/aws/lambda/mealmgtsystem-dev-auth-handler`
 
-### 2. Check Lambda Metrics
+### 2. Lambda メトリクスの確認
 
 ```bash
-# Get error count for the last 15 minutes
+# 過去15分間のエラー数を取得
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Errors \
@@ -58,26 +58,26 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-### 3. Check X-Ray Traces for Errors
+### 3. X-Ray トレースでエラーを確認
 
-Navigate to: [X-Ray Console](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
+アクセス先: [X-Ray Console](https://console.aws.amazon.com/xray/home?region=ap-northeast-1#/traces)
 
-Filter: `service(id(name: "mealmgtsystem-dev-api-handler")) AND error`
+フィルター: `service(id(name: "mealmgtsystem-dev-api-handler")) AND error`
 
-### 4. Check Related Services
+### 4. 関連サービスの確認
 
-- **API Gateway**: Check for 5xx errors
-- **DynamoDB**: Check for throttling or system errors
-- **Bedrock**: Check for API errors or throttling
+- **API Gateway**: 5xx エラーの確認
+- **DynamoDB**: スロットリングまたはシステムエラーの確認
+- **Bedrock**: API エラーまたはスロットリングの確認
 
 ---
 
-## Investigation Steps
+## 調査手順
 
-### Step 1: Identify Error Type
+### ステップ 1: エラータイプの特定
 
 ```bash
-# Get recent Lambda invocations
+# 最近の Lambda 呼び出しを取得
 aws logs filter-log-events \
   --log-group-name /aws/lambda/mealmgtsystem-dev-api-handler \
   --start-time $(date -u -v-15M +%s000 2>/dev/null || echo $(($(date +%s) - 900))000) \
@@ -85,31 +85,31 @@ aws logs filter-log-events \
   --limit 20
 ```
 
-Common error patterns:
-- `ValidationError` - Invalid input data
-- `ResourceNotFoundException` - DynamoDB item not found
-- `AccessDeniedException` - IAM permission issue
-- `TimeoutError` - Function timeout
-- `ThrottlingException` - Downstream service throttling
+よくあるエラーパターン:
+- `ValidationError` - 無効な入力データ
+- `ResourceNotFoundException` - DynamoDB アイテムが見つからない
+- `AccessDeniedException` - IAM 権限の問題
+- `TimeoutError` - 関数タイムアウト
+- `ThrottlingException` - ダウンストリームサービスのスロットリング
 
-### Step 2: Check Function Configuration
+### ステップ 2: 関数設定の確認
 
 ```bash
-# Get function configuration
+# 関数設定を取得
 aws lambda get-function-configuration \
   --function-name mealmgtsystem-dev-api-handler \
   --query '[Timeout,MemorySize,Runtime,LastModified]'
 
-# Check reserved concurrency
+# 予約済み同時実行数を確認
 aws lambda get-function-concurrency \
   --function-name mealmgtsystem-dev-api-handler
 ```
 
-### Step 3: Check Cold Starts
+### ステップ 3: コールドスタートの確認
 
 ```bash
-# Check for cold start impact using Logs Insights
-# Run in CloudWatch Logs Insights console:
+# コールドスタートの影響を Logs Insights で確認
+# CloudWatch Logs Insights コンソールで実行:
 filter @type = "REPORT"
 | fields @timestamp, @requestId, @duration, @billedDuration, @memorySize, @maxMemoryUsed
 | filter @message like /Init Duration/
@@ -118,10 +118,10 @@ filter @type = "REPORT"
 | limit 50
 ```
 
-### Step 4: Check Duration Metrics
+### ステップ 4: Duration メトリクスの確認
 
 ```bash
-# Check if functions are timing out
+# 関数がタイムアウトしていないか確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Lambda \
   --metric-name Duration \
@@ -134,23 +134,23 @@ aws cloudwatch get-metric-statistics \
 
 ---
 
-## Common Causes and Fixes
+## よくある原因と対処法
 
-### 1. DynamoDB Access Issues
+### 1. DynamoDB アクセスの問題
 
-**Symptoms:**
-- Error: `ResourceNotFoundException` or `ValidationException`
-- Occurs during read/write operations
-- X-Ray shows DynamoDB segment errors
+**症状:**
+- エラー: `ResourceNotFoundException` または `ValidationException`
+- 読み取り/書き込み操作中に発生
+- X-Ray で DynamoDB セグメントのエラーが表示される
 
-**Investigation:**
+**調査:**
 ```bash
-# Check DynamoDB table status
+# DynamoDB テーブルのステータスを確認
 aws dynamodb describe-table \
   --table-name mealmgtsystem-dev-meals \
   --query 'Table.[TableStatus,ItemCount]'
 
-# Check for throttling
+# スロットリングの確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/DynamoDB \
   --metric-name ThrottledRequests \
@@ -161,21 +161,21 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Fix:**
-1. Verify table exists and is ACTIVE
-2. Check IAM role has proper DynamoDB permissions
-3. If using provisioned capacity, increase read/write units
+**対処法:**
+1. テーブルが存在し、ACTIVE 状態であることを確認
+2. IAM ロールに適切な DynamoDB 権限があることを確認
+3. プロビジョニング済み容量を使用している場合は、読み取り/書き込みユニットを増加
 
-### 2. Bedrock API Errors
+### 2. Bedrock API エラー
 
-**Symptoms:**
-- Error: `ThrottlingException` or `ModelTimeoutException`
-- Occurs during AI-powered features (food analysis, advice generation)
-- X-Ray shows long Bedrock segment latency
+**症状:**
+- エラー: `ThrottlingException` または `ModelTimeoutException`
+- AI 機能（食品分析、アドバイス生成）で発生
+- X-Ray で Bedrock セグメントのレイテンシが高い
 
-**Investigation:**
+**調査:**
 ```bash
-# Check Bedrock invocation errors
+# Bedrock 呼び出しエラーを確認
 aws cloudwatch get-metric-statistics \
   --namespace AWS/Bedrock \
   --metric-name InvocationClientErrors \
@@ -185,22 +185,22 @@ aws cloudwatch get-metric-statistics \
   --statistics Sum
 ```
 
-**Fix:**
-1. Implement retry logic with exponential backoff
-2. Reduce prompt size or complexity
-3. Check Bedrock service health in AWS Console
+**対処法:**
+1. 指数バックオフ付きのリトライロジックを実装
+2. プロンプトのサイズまたは複雑さを軽減
+3. AWS コンソールで Bedrock サービスの正常性を確認
 
-### 3. Memory/Timeout Issues
+### 3. メモリ/タイムアウトの問題
 
-**Symptoms:**
-- Error: `Task timed out after X seconds`
-- High memory usage near limit
-- Cold starts causing timeouts
+**症状:**
+- エラー: `Task timed out after X seconds`
+- メモリ使用量が上限に近い
+- コールドスタートによるタイムアウト
 
-**Investigation:**
+**調査:**
 ```bash
-# Check memory usage in logs
-# Run in CloudWatch Logs Insights:
+# ログでメモリ使用量を確認
+# CloudWatch Logs Insights で実行:
 filter @type = "REPORT"
 | fields @memorySize as allocated, @maxMemoryUsed as used,
         (@maxMemoryUsed/@memorySize * 100) as percentUsed
@@ -208,112 +208,112 @@ filter @type = "REPORT"
 | limit 20
 ```
 
-**Fix:**
-1. Increase memory allocation:
+**対処法:**
+1. メモリ割り当てを増加:
    ```bash
    aws lambda update-function-configuration \
      --function-name mealmgtsystem-dev-api-handler \
      --memory-size 512
    ```
-2. Increase timeout if needed:
+2. 必要に応じてタイムアウトを増加:
    ```bash
    aws lambda update-function-configuration \
      --function-name mealmgtsystem-dev-api-handler \
      --timeout 30
    ```
 
-### 4. IAM Permission Denied
+### 4. IAM 権限拒否
 
-**Symptoms:**
-- Error: `AccessDeniedException`
-- Function cannot access resources
-- New deployment introduced permission issue
+**症状:**
+- エラー: `AccessDeniedException`
+- 関数がリソースにアクセスできない
+- 新しいデプロイで権限の問題が発生
 
-**Investigation:**
+**調査:**
 ```bash
-# Get function execution role
+# 関数の実行ロールを取得
 aws lambda get-function-configuration \
   --function-name mealmgtsystem-dev-api-handler \
   --query 'Role'
 
-# List attached policies
+# アタッチされたポリシーをリスト
 aws iam list-attached-role-policies \
   --role-name mealmgtsystem-dev-api-handler-role
 ```
 
-**Fix:**
-1. Check IAM policy for required permissions
-2. Use IAM Policy Simulator to validate permissions
-3. Add missing permissions to the role
+**対処法:**
+1. IAM ポリシーに必要な権限があるか確認
+2. IAM ポリシーシミュレーターを使用して権限を検証
+3. 不足している権限をロールに追加
 
 ---
 
-## Recovery Procedure
+## 復旧手順
 
-### Option 1: Rollback to Previous Version
+### オプション 1: 以前のバージョンへロールバック
 
 ```bash
-# List function versions
+# 関数のバージョンをリスト
 aws lambda list-versions-by-function \
   --function-name mealmgtsystem-dev-api-handler \
   --query 'Versions[-5:].[Version,LastModified]'
 
-# Get previous version alias or publish new alias
+# 以前のバージョンのエイリアスを取得または新しいエイリアスを発行
 aws lambda update-alias \
   --function-name mealmgtsystem-dev-api-handler \
   --name live \
   --function-version <PREVIOUS_VERSION>
 ```
 
-### Option 2: Hot Fix Deployment
+### オプション 2: ホットフィックスのデプロイ
 
-If the issue is identified in code:
-1. Fix the issue in the codebase
-2. Run tests locally
-3. Deploy:
+問題がコードで特定された場合:
+1. コードベースで問題を修正
+2. ローカルでテストを実行
+3. デプロイ:
    ```bash
-   # Deploy via Serverless Framework or SAM
+   # Serverless Framework または SAM でデプロイ
    cd /path/to/pf1
    serverless deploy --function api-handler --stage dev
    ```
 
-### Option 3: Temporary Mitigation
+### オプション 3: 一時的な緩和措置
 
-If immediate fix is not possible:
-1. Increase Lambda concurrency limit
-2. Enable provisioned concurrency for consistent cold starts
-3. Implement circuit breaker pattern in API Gateway
-
----
-
-## Post-Incident
-
-After the alert is resolved:
-
-- [ ] **Document Root Cause**: Record what caused the errors
-- [ ] **Review Error Handling**: Improve error messages and logging
-- [ ] **Update Alerts**: Adjust threshold if 5% is too sensitive
-- [ ] **Add Tests**: Create test cases for the failure scenario
-- [ ] **Communicate**: Update team on incident and resolution
+即座の修正が困難な場合:
+1. Lambda の同時実行数制限を増加
+2. コールドスタートの安定性のためにプロビジョニング済み同時実行を有効化
+3. API Gateway でサーキットブレーカーパターンを実装
 
 ---
 
-## Dashboard and Monitoring
+## インシデント後の対応
 
-### Real-time Monitoring
+アラートが解決した後:
+
+- [ ] **根本原因の文書化**: エラーの原因を記録
+- [ ] **エラーハンドリングの見直し**: エラーメッセージとロギングを改善
+- [ ] **アラートの更新**: 5%が敏感すぎる場合は閾値を調整
+- [ ] **テストの追加**: 障害シナリオのテストケースを作成
+- [ ] **チームへの共有**: インシデントと解決策をチームに報告
+
+---
+
+## ダッシュボードと監視
+
+### リアルタイム監視
 
 - [CloudWatch Dashboard - PF1](https://console.aws.amazon.com/cloudwatch/home?region=ap-northeast-1#dashboards:name=PF1-Dashboard)
 
-### Related Alarms
+### 関連アラーム
 
-- `pf1-lambda-<function>-throttles`: Lambda throttling alert
-- `pf1-lambda-<function>-duration`: Duration threshold alert
-- `pf1-apigw-5xx-errors`: API Gateway 5xx errors
-- `pf1-dynamodb-throttling`: DynamoDB throttling
+- `pf1-lambda-<function>-throttles`: Lambda スロットリングアラート
+- `pf1-lambda-<function>-duration`: Duration 閾値アラート
+- `pf1-apigw-5xx-errors`: API Gateway 5xx エラー
+- `pf1-dynamodb-throttling`: DynamoDB スロットリング
 
 ---
 
-## References
+## 参考資料
 
 - [AWS Lambda Monitoring](https://docs.aws.amazon.com/lambda/latest/dg/monitoring-metrics.html)
 - [Lambda Troubleshooting](https://docs.aws.amazon.com/lambda/latest/dg/troubleshooting.html)
@@ -322,6 +322,6 @@ After the alert is resolved:
 
 ---
 
-**Last Updated:** 2025-12-29
-**Runbook Owner:** Platform Engineering Team
-**Review Frequency:** Quarterly
+**最終更新日:** 2025-12-29
+**ランブック管理者:** Platform Engineering Team
+**レビュー頻度:** 四半期ごと
