@@ -12,14 +12,14 @@ AWS統合監視・インシデント対応基盤。AWS Well-Architected Framewor
 - **3段階アラートシステム** - Critical/Warning/Infoの重要度分離とSlack通知
 - **CloudWatch Logs Insights** - Lambda、API Gateway、Step Functionsトラブルシューティング用の事前定義クエリ
 - **X-Ray トレーシング** - 20%サンプリング、エラーは100%キャプチャ
-- **CloudWatch ダッシュボード** - 3つのダッシュボード（食事管理アプリ、問い合わせシステム、概要）を無料枠内で構築
+- **CloudWatch ダッシュボード** - 3つのダッシュボード（食事カロリー管理アプリ、生成AI問い合わせシステム、概要）を無料枠内で構築
 
 ### 監視対象システム
 
 | システム | コンポーネント | アラーム数 |
 |----------|----------------|------------|
-| [食事管理アプリ](https://github.com/kuma8088/meal-management-app) | Lambda, API Gateway, DynamoDB, Bedrock | 28 |
-| [問い合わせシステム](https://github.com/kuma8088/inquirysystem) | Lambda, Step Functions, SQS, Glue | 4 |
+| [食事カロリー管理アプリ](https://github.com/kuma8088/meal-management-app) | Lambda, API Gateway, DynamoDB, Bedrock | 28 |
+| [生成AI問い合わせシステム](https://github.com/kuma8088/inquirysystem) | Lambda, Step Functions, SQS, Glue | 4 |
 
 ### 月額コスト
 
@@ -126,8 +126,8 @@ terraform apply
 | フェーズ | 説明 | ステータス |
 |----------|------|------------|
 | **Phase 1** | 基盤（SNS, Chatbot, X-Ray） | 完了 |
-| **Phase 2** | 食事管理アプリ監視（Lambda, API GW, DynamoDB, Bedrock） | 完了 |
-| **Phase 3** | 問い合わせシステム監視（Step Functions, SQS, Glue） | 完了 |
+| **Phase 2** | 食事カロリー管理アプリ監視（Lambda, API GW, DynamoDB, Bedrock） | 完了 |
+| **Phase 3** | 生成AI問い合わせシステム監視（Step Functions, SQS, Glue） | 完了 |
 | **Phase 4** | コスト監視 | スキップ（別プロジェクトへ移行） |
 | **Phase 5** | テスト・最適化 | 完了 |
 
@@ -135,7 +135,7 @@ terraform apply
 
 - アラーム数を最適化: 46 → 32（AWS Well-Architected準拠）
 - CloudWatch Logs Insightsクエリを追加（Lambda用3クエリ）
-- ランブック作成: 食事管理アプリ用4つ、問い合わせシステム用3つ
+- ランブック作成: 食事カロリー管理アプリ用4つ、生成AI問い合わせシステム用3つ
 - CLIコマンドのテスト・検証完了
 
 ### 未実装
@@ -148,7 +148,7 @@ terraform apply
 
 ## アラーム設定
 
-### 食事管理アプリ（28アラーム）
+### 食事カロリー管理アプリ（28アラーム）
 
 | サービス | アラーム | 重要度 |
 |----------|----------|--------|
@@ -157,7 +157,7 @@ terraform apply
 | DynamoDB（2テーブル × 3） | System Errors, Read/Write Throttles | Critical |
 | Bedrock | Client Errors, Server Errors, Latency | Critical/Warning |
 
-### 問い合わせシステム（4アラーム）
+### 生成AI問い合わせシステム（4アラーム）
 
 | サービス | アラーム | 重要度 |
 |----------|----------|--------|
@@ -214,7 +214,7 @@ terraform apply
 | 復旧手順 | ロールバック、キャパシティ増加等 |
 | 事後対応 | インシデント後のチェックリスト |
 
-### 食事管理アプリ ランブック
+### 食事カロリー管理アプリ ランブック
 
 | ランブック | アラート | 説明 |
 |------------|----------|------|
@@ -223,7 +223,7 @@ terraform apply
 | [bedrock-quota-exceeded.md](docs/runbooks/pf1/bedrock-quota-exceeded.md) | Client Errors > 5% | Bedrock APIエラーとスロットリング |
 | [api-gateway-5xx.md](docs/runbooks/pf1/api-gateway-5xx.md) | 5XX > 1% | API Gatewayサーバーエラー |
 
-### 問い合わせシステム ランブック
+### 生成AI問い合わせシステム ランブック
 
 | ランブック | アラート | 説明 |
 |------------|----------|------|
