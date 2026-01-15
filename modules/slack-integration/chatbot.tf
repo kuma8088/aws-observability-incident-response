@@ -59,9 +59,10 @@ resource "aws_chatbot_slack_channel_configuration" "warning" {
   slack_channel_id   = var.slack_channel_warning
   slack_team_id      = var.slack_workspace_id
 
-  sns_topic_arns = [
-    aws_sns_topic.warning.arn,
-  ]
+  sns_topic_arns = concat(
+    [aws_sns_topic.warning.arn],
+    var.additional_warning_sns_topics
+  )
 
   guardrail_policy_arns = [
     "arn:aws:iam::aws:policy/ReadOnlyAccess",

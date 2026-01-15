@@ -45,3 +45,10 @@ variable "slack_channel_info" {
   type        = string
   sensitive   = true
 }
+
+# External SNS topics from other portfolio projects
+variable "additional_warning_sns_topics" {
+  description = "Additional SNS topic ARNs to subscribe to warning channel (e.g., PF-15 Cost Optimization)"
+  type        = list(string)
+  default     = []
+}

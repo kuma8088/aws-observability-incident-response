@@ -9,6 +9,9 @@ module "slack_integration" {
   slack_channel_critical = var.slack_channel_critical
   slack_channel_warning  = var.slack_channel_warning
   slack_channel_info     = var.slack_channel_info
+
+  # External SNS topics (from other portfolio projects)
+  additional_warning_sns_topics = var.additional_warning_sns_topics
 }
 
 # X-Ray Tracing Module
